@@ -20,13 +20,13 @@ const Navbar = ({ onSearch, onCategoryChange, activeCategory, onSortChange, acti
       {/* Ad Banners Row */}
       <div className="grid grid-cols-2 bg-black h-[100px] w-full relative z-[100]">
         <iframe 
-          src="https://nsdb.com/streamengine/banners/column_1.html" 
+          src="/banners/column_1.html" 
           className="w-full h-full border-0"
           title="Ad Banner 1"
           scrolling="no"
         />
         <iframe 
-          src="https://nsdb.com/streamengine/banners/column_2.html" 
+          src="/banners/column_2.html" 
           className="w-full h-full border-0"
           title="Ad Banner 2"
           scrolling="no"

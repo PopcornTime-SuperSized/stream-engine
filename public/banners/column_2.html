@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banner 2</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            border-left: 1px solid #333; /* Separator */
+        }
+        a {
+            text-decoration: none;
+            text-align: center;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.3s;
+        }
+        a:hover {
+            background-color: #1a1a1a;
+        }
+        /* Hover Effect: Scale Up */
+        a:hover .content {
+            transform: scale(1.05);
+        }
+        .content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* Entrance Animation (with delay) */
+            animation: slideUpFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s backwards;
+            transition: transform 0.3s ease;
+        }
+        .title {
+            color: #22c55e; /* Green-500 */
+            font-size: 24px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .subtitle {
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
+        @keyframes slideUpFade {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="https://thelottery.com" target="_blank">
+        <div class="content">
+            <div class="title">TheLottery.com</div>
+            <div class="subtitle">The Global Crypto Lottery</div>
+        </div>
+    </a>
+</body>
+</html>
