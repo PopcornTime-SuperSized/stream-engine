@@ -28,13 +28,17 @@
     ],
     "mac": {
       "category": "public.app-category.entertainment",
-      "target": "dmg"
+      "target": "dmg",
+      "artifactName": "StreamEngine-mac.${ext}",
+      "identity": null
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "StreamEngine-win.${ext}"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "artifactName": "StreamEngine-linux.${ext}"
     }
   },
   "dependencies": {
