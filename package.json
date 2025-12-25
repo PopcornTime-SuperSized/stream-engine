@@ -18,6 +18,7 @@
     "dist": "npm run react-build && electron-builder"
   },
   "build": {
+    "extends": null,
     "appId": "org.popcorntime.streamengine",
     "productName": "StreamEngine",
     "files": [
