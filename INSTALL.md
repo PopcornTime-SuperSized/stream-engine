@@ -12,6 +12,11 @@ Our automated build server compiles fresh installers for every update.
 > 3. Open the app again.
 > *(This is required because we don't pay Apple $99/year for a developer certificate).*
 
+> **⚠️ Windows Users:** If you see "Windows protected your PC":
+> 1. Click **More info**.
+> 2. Click **Run anyway**.
+> *(This is required because we don't buy a Windows code signing certificate).*
+
 ---
 
 ## Option 2: Build from Source
