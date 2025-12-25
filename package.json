@@ -20,7 +20,7 @@
   "build": {
     "extends": null,
     "appId": "org.popcorntime.streamengine",
-    "productName": "PopcornTime.StreamEngine",
+    "productName": "PopcornTime-StreamEngine",
     "directories": {
       "buildResources": "resources"
     },
@@ -39,16 +39,16 @@
     "mac": {
       "category": "public.app-category.entertainment",
       "target": "dmg",
-      "artifactName": "PopcornTime.StreamEngine-mac.${ext}",
+      "artifactName": "PopcornTime-StreamEngine-mac.${ext}",
       "identity": null
     },
     "win": {
       "target": "nsis",
-      "artifactName": "PopcornTime.StreamEngine-win.${ext}"
+      "artifactName": "PopcornTime-StreamEngine-win.${ext}"
     },
     "linux": {
       "target": "AppImage",
-      "artifactName": "PopcornTime.StreamEngine-linux.${ext}"
+      "artifactName": "PopcornTime-StreamEngine-linux.${ext}"
     }
   },
   "dependencies": {
