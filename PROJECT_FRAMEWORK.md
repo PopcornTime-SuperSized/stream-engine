@@ -49,8 +49,8 @@
 
 ### 6. Distribution & Build System
 *   **Builder**: Configured `electron-builder` to generate production-ready installers.
-    *   **Windows**: NSIS Installer (`.exe`).
-    *   **macOS**: DMG Disk Image (`.dmg`).
+    *   **Windows**: NSIS Installer (`PopcornTime-StreamEngine-win.exe`).
+    *   **macOS**: DMG Disk Image (`PopcornTime-StreamEngine-mac.dmg`).
     *   **Linux**: AppImage.
 *   **Documentation**: Created `INSTALL.md` to guide users through the "Build from Source" process, ensuring transparency and security.
 
@@ -58,6 +58,11 @@
 We evaluated **PWA (Progressive Web Apps)** as an alternative but rejected it for two critical reasons:
 1.  **Transcoding**: Our audio fix relies on spawning a native **FFmpeg** process. Browsers (PWAs) are sandboxed and cannot execute external binaries.
 2.  **Torrent Protocols**: Browsers are limited to WebRTC peers (WebTorrent). To access the full torrent network (TCP/UDP peers), we need the raw network socket access that only a desktop runtime like Electron provides.
+
+### 8. Production Polish (v0.1.0)
+*   **FFmpeg Bundling**: Integrated `ffmpeg-static` and configured ASAR unpacking. This ensures the transcoding engine works out-of-the-box on any machine without manual dependency installation.
+*   **Branding**: Renamed to **PopcornTime-StreamEngine** and applied a custom application icon.
+*   **Automated Releases**: GitHub Actions now builds and uploads signed artifacts directly to GitHub Releases.
 
 ## How to Run
 ```bash
