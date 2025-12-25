@@ -47,6 +47,18 @@
 *   Added a **Dual-Fallback Strategy**: Tries `window.electron` (Preload) first, falls back to `window.require` (Node Integration) if needed.
 *   Added proper process cleanup to kill FFmpeg zombies when streaming stops.
 
+### 6. Distribution & Build System
+*   **Builder**: Configured `electron-builder` to generate production-ready installers.
+    *   **Windows**: NSIS Installer (`.exe`).
+    *   **macOS**: DMG Disk Image (`.dmg`).
+    *   **Linux**: AppImage.
+*   **Documentation**: Created `INSTALL.md` to guide users through the "Build from Source" process, ensuring transparency and security.
+
+### 7. Technical Decisions: Why Electron?
+We evaluated **PWA (Progressive Web Apps)** as an alternative but rejected it for two critical reasons:
+1.  **Transcoding**: Our audio fix relies on spawning a native **FFmpeg** process. Browsers (PWAs) are sandboxed and cannot execute external binaries.
+2.  **Torrent Protocols**: Browsers are limited to WebRTC peers (WebTorrent). To access the full torrent network (TCP/UDP peers), we need the raw network socket access that only a desktop runtime like Electron provides.
+
 ## How to Run
 ```bash
 # Install dependencies
@@ -54,4 +66,7 @@ npm install
 
 # Start Development Mode (React + Electron)
 npm run dev
+
+# Build for Production (Detects OS automatically)
+npm run dist
 ```
