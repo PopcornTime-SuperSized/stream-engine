@@ -64,6 +64,15 @@ We evaluated **PWA (Progressive Web Apps)** as an alternative but rejected it fo
 *   **Branding**: Renamed to **PopcornTime-StreamEngine** and applied a custom application icon.
 *   **Automated Releases**: GitHub Actions now builds and uploads signed artifacts directly to GitHub Releases.
 
+### 9. Code Signing & Platform Security
+*   **macOS Notarization**:
+    *   Implemented an **Optional Signing Pipeline** in GitHub Actions.
+    *   If Apple Developer credentials (`APPLE_ID`, `CSC_LINK`) are provided as Secrets, the app is automatically signed and notarized (Hardened Runtime enabled via `entitlements.mac.plist`).
+    *   **Fallback**: If no credentials are present, the build proceeds as unsigned (requiring the `xattr -cr` workaround).
+*   **Windows SmartScreen**:
+    *   Since we do not use a costly Windows EV certificate, users will see a "Windows protected your PC" prompt.
+    *   Documented the "More info -> Run anyway" bypass in `README.md` and `INSTALL.md`.
+
 ## How to Run
 ```bash
 # Install dependencies
