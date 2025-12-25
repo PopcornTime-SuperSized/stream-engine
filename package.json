@@ -40,15 +40,18 @@
       "category": "public.app-category.entertainment",
       "target": "dmg",
       "artifactName": "PopcornTime-StreamEngine-mac.${ext}",
+      "icon": "resources/icon.png",
       "identity": null
     },
     "win": {
       "target": "nsis",
-      "artifactName": "PopcornTime-StreamEngine-win.${ext}"
+      "artifactName": "PopcornTime-StreamEngine-win.${ext}",
+      "icon": "resources/icon.png"
     },
     "linux": {
       "target": "AppImage",
-      "artifactName": "PopcornTime-StreamEngine-linux.${ext}"
+      "artifactName": "PopcornTime-StreamEngine-linux.${ext}",
+      "icon": "resources/icon.png"
     }
   },
   "dependencies": {
