@@ -41,7 +41,10 @@
       "target": "dmg",
       "artifactName": "PopcornTime-StreamEngine-mac.${ext}",
       "icon": "resources/icon.png",
-      "identity": null
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "resources/entitlements.mac.plist",
+      "entitlementsInherit": "resources/entitlements.mac.plist"
     },
     "win": {
       "target": "nsis",
