@@ -32,6 +32,8 @@ jobs:
         run: npm run react-build
         env:
           CI: false
+          REACT_APP_TMDB_API_KEY: ${{ secrets.REACT_APP_TMDB_API_KEY }}
+          REACT_APP_TMDB_ACCESS_TOKEN: ${{ secrets.REACT_APP_TMDB_ACCESS_TOKEN }}
 
       - name: Build & release (Mac)
         if: matrix.os == 'macos-latest'
