@@ -7,6 +7,10 @@ const WebTorrent = require('webtorrent');
 const fs = require('fs');
 const express = require('express');
 const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
+
+// Tell fluent-ffmpeg where to find the static binary
+ffmpeg.setFfmpegPath(ffmpegPath.replace('app.asar', 'app.asar.unpacked'));
 
 // Initialize WebTorrent client
 const client = new WebTorrent();
