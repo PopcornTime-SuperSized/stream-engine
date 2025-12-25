@@ -19,6 +19,7 @@ This project was started in the true spirit of the original **Popcorn Time**—t
 Get the latest version directly:
 
 *   🍎 **[Download for Mac (.dmg)](https://github.com/PopcornTime-SuperSized/stream-engine/releases/download/latest/StreamEngine-mac.dmg)**
+    *   *Note: If macOS says "App is damaged", run `xattr -cr /Applications/StreamEngine.app` in Terminal.*
 *   🪟 **[Download for Windows (.exe)](https://github.com/PopcornTime-SuperSized/stream-engine/releases/download/latest/StreamEngine-win.exe)**
 
 ### Option 2: Build from Source (Secure)

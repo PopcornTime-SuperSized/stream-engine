@@ -6,6 +6,12 @@ Our automated build server compiles fresh installers for every update.
 *   🍎 **[Download for Mac (.dmg)](https://github.com/PopcornTime-SuperSized/stream-engine/releases/download/latest/StreamEngine-mac.dmg)**
 *   🪟 **[Download for Windows (.exe)](https://github.com/PopcornTime-SuperSized/stream-engine/releases/download/latest/StreamEngine-win.exe)**
 
+> **⚠️ macOS Users:** If you see "App is damaged and can't be opened":
+> 1. Open Terminal.
+> 2. Run: `xattr -cr /Applications/StreamEngine.app`
+> 3. Open the app again.
+> *(This is required because we don't pay Apple $99/year for a developer certificate).*
+
 ---
 
 ## Option 2: Build from Source
