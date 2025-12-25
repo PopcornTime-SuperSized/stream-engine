@@ -14,9 +14,18 @@ This project was started in the true spirit of the original **Popcorn Time**—t
 *   **Cross-Platform**: Built on Electron and React.
 
 ## Download & Install
-We believe in security through transparency. To ensure you have the clean, unadulterated version of StreamEngine, we recommend building it from source. It only takes a few minutes.
 
-👉 **[Read the Installation Guide (Windows & Mac)](INSTALL.md)**
+### Option 1: Pre-compiled Apps (Easiest)
+You can download the latest `.exe` (Windows) and `.dmg` (Mac) installers directly from our automated build system.
+
+1.  Go to the **[Actions Tab](https://github.com/PopcornTime-SuperSized/stream-engine/actions)**.
+2.  Click on the latest **Success** run.
+3.  Scroll down to **Artifacts** to find your installer.
+
+### Option 2: Build from Source (Secure)
+We believe in security through transparency. To ensure you have the clean, unadulterated version of StreamEngine, you can build it from source in minutes.
+
+👉 **[Read the Full Installation Guide](INSTALL.md)**
 
 ## Disclaimer
 This software is for educational purposes and preserving the freedom of information. The developers do not host any content.

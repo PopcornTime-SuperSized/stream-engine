@@ -1,5 +1,18 @@
 # How to Build & Install StreamEngine
 
+## Option 1: Download Pre-built (Recommended)
+Our automated build server compiles fresh installers for every update.
+
+1.  Visit the **[Actions Tab](https://github.com/PopcornTime-SuperSized/stream-engine/actions)** on GitHub.
+2.  Click on the top-most workflow run (make sure it has a green checkmark).
+3.  Scroll down to the **"Artifacts"** section.
+4.  Download the file for your OS:
+    *   **StreamEngine-macos-latest**: Contains the `.dmg` installer.
+    *   **StreamEngine-windows-latest**: Contains the `.exe` installer.
+
+---
+
+## Option 2: Build from Source
 Since **StreamEngine** is open-source software, the most secure way to install it is to build it yourself. We've made this process extremely simple.
 
 ## Prerequisites
