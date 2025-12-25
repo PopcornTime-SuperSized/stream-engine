@@ -51,7 +51,7 @@ const DetailView = ({ item, type, onClose, onPlay }) => {
 
   if (loading || !details) {
     return (
-      <div className="fixed inset-0 z-50 bg-gray-900 text-white flex items-center justify-center">
+      <div className="fixed inset-0 z-[200] bg-gray-900 text-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-red-600"></div>
       </div>
     );
@@ -62,7 +62,7 @@ const DetailView = ({ item, type, onClose, onPlay }) => {
   const year = new Date(details.release_date || details.first_air_date).getFullYear();
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-900 overflow-y-auto">
+    <div className="fixed inset-0 z-[200] bg-gray-900 overflow-y-auto">
       {/* Hero Section */}
       <div className="relative h-[60vh]">
         <div className="absolute inset-0">

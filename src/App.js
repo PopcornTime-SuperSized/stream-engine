@@ -49,18 +49,32 @@ function App() {
   const loadContent = useCallback(async () => {
     setLoading(true);
     try {
-      let data;
+      // Fetch 5 pages (~100 items) in parallel
+      const pages = [1, 2, 3, 4, 5];
+      let promises;
+
       if (searchQuery) {
-        data = category === 'movie' 
-          ? await tmdb.searchMovies(searchQuery)
-          : await tmdb.searchTV(searchQuery);
+        promises = pages.map(page => 
+          category === 'movie' 
+            ? tmdb.searchMovies(searchQuery, page)
+            : tmdb.searchTV(searchQuery, page)
+        );
       } else {
         const apiSort = getSortParam(sortBy, category);
-        data = category === 'movie'
-          ? await tmdb.discoverMovies(apiSort)
-          : await tmdb.discoverTV(apiSort);
+        promises = pages.map(page => 
+          category === 'movie'
+            ? tmdb.discoverMovies(apiSort, page)
+            : tmdb.discoverTV(apiSort, page)
+        );
       }
-      setItems(data.results || []);
+
+      const results = await Promise.all(promises);
+      
+      // Combine all pages and remove duplicates by ID
+      const allItems = results.flatMap(data => data.results || []);
+      const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
+
+      setItems(uniqueItems);
     } catch (error) {
       console.error('Failed to load content:', error);
       setStatus('Failed to load content from TMDB');
@@ -161,7 +175,7 @@ function App() {
 
         {/* Video Player Overlay */}
         {streamUrl && (
-          <div className="fixed inset-0 z-[60] bg-black flex flex-col justify-center">
+          <div className="fixed inset-0 z-[200] bg-black flex flex-col justify-center">
             <video 
               src={streamUrl} 
               controls 
