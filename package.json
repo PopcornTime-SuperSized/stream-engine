@@ -4,6 +4,10 @@
   "main": "src/main/main.js",
   "homepage": "./",
   "author": "StreamEngine Team",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PopcornTime-SuperSized/stream-engine.git"
+  },
   "description": "Free, open-source torrent streaming engine.",
   "scripts": {
     "start": "electron .",
