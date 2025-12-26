@@ -1,8 +1,12 @@
 import axios from 'axios';
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-const API_KEY = process.env.REACT_APP_TMDB_API_KEY;
-const ACCESS_TOKEN = process.env.REACT_APP_TMDB_ACCESS_TOKEN;
+
+// Fallback API key for production builds (free TMDB API key)
+const FALLBACK_API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI3MjM0NjE1NjQxYzY0MzE1NWI5ZTMxOGE1MDEzMTdjNCIsIm5iZiI6MTc0ODM1MzgwMC40Miwic3ViIjoiNjgzNTM0MjhmNzM1NWUxMjVmYWFhODY0Iiwic2NvcGVzIjpbImFwaV9yZWFkIl0sInZlcnNpb24iOjF9.xKVr4nuVv2lAb8xjxSP-0P7xMXp9PQ6gMbJAHnaHhh8';
+
+const API_KEY = process.env.REACT_APP_TMDB_API_KEY || '7234615641c643155b9e318a501317c4';
+const ACCESS_TOKEN = process.env.REACT_APP_TMDB_ACCESS_TOKEN || FALLBACK_API_KEY;
 
 const tmdbClient = axios.create({
   baseURL: TMDB_BASE_URL,
