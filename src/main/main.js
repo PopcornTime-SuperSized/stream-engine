@@ -147,6 +147,21 @@ ipcMain.handle('search-torrents', async (event, query, category = 'All') => {
 // IPC: Start Streaming
 ipcMain.handle('start-stream', async (event, magnetURI) => {
   return new Promise((resolve, reject) => {
+    // Validate magnet URI
+    if (!magnetURI || typeof magnetURI !== 'string') {
+      return reject(new Error('Invalid magnet link: empty or not a string'));
+    }
+    
+    // Check for valid magnet format (must start with magnet:? and contain xt=urn:btih:)
+    if (!magnetURI.startsWith('magnet:?') || !magnetURI.includes('xt=urn:btih:')) {
+      return reject(new Error('Invalid magnet link format'));
+    }
+    
+    // Check for dummy/placeholder magnet (no real hash)
+    if (magnetURI.includes('btih:0000000000000000000000000000000000000000')) {
+      return reject(new Error('No valid torrent source found'));
+    }
+    
     // Cleanup previous torrents
     if (client.torrents.length > 0) {
       client.torrents.forEach(t => t.destroy());
@@ -155,37 +170,136 @@ ipcMain.handle('start-stream', async (event, magnetURI) => {
 
     console.log(`Starting stream for magnet: ${magnetURI}`);
     
-    client.add(magnetURI, (torrent) => {
-      console.log('Torrent added, looking for video file...');
+    try {
+      const torrent = client.add(magnetURI);
       
-      // Find the largest file, usually the video
-      const file = torrent.files.find(function (file) {
-        return file.name.endsWith('.mp4') || file.name.endsWith('.mkv') || file.name.endsWith('.avi') || file.name.endsWith('.webm');
+      torrent.on('ready', () => {
+        console.log('Torrent added, looking for video file...');
+      
+        // Find the largest file, usually the video
+        const file = torrent.files.find(function (file) {
+          return file.name.endsWith('.mp4') || file.name.endsWith('.mkv') || file.name.endsWith('.avi') || file.name.endsWith('.webm');
+        });
+
+        if (!file) {
+          const largestFile = torrent.files.reduce((a, b) => a.length > b.length ? a : b);
+          console.log(`No standard video extension found. Using largest file: ${largestFile.name}`);
+          setupStream(torrent, largestFile, resolve, reject);
+          return;
+        }
+
+        setupStream(torrent, file, resolve, reject);
       });
-
-      if (!file) {
-        const largestFile = torrent.files.reduce((a, b) => a.length > b.length ? a : b);
-        console.log(`No standard video extension found. Using largest file: ${largestFile.name}`);
-        setupStream(torrent, largestFile, resolve);
-        return;
-      }
-
-      setupStream(torrent, file, resolve);
-    });
+      
+      torrent.on('error', (err) => {
+        console.error('Torrent error:', err.message);
+        reject(new Error(`Torrent error: ${err.message}`));
+      });
+    } catch (err) {
+      console.error('Failed to add torrent:', err.message);
+      reject(new Error(`Failed to start stream: ${err.message}`));
+    }
   });
 });
 
-function setupStream(torrent, file, resolve) {
+// Stop stream and cleanup torrents
+ipcMain.handle('stop-stream', async () => {
+  console.log('Stopping stream and cleaning up torrents...');
+  if (client.torrents.length > 0) {
+    client.torrents.forEach(t => {
+      console.log(`Destroying torrent: ${t.name || t.infoHash}`);
+      t.destroy();
+    });
+  }
+  activeFile = null;
+  return { success: true };
+});
+
+function setupStream(torrent, file, resolve, reject) {
   activeFile = file;
   const streamUrl = `http://localhost:${serverPort}/stream`;
+  let attempts = 0;
+  const maxAttempts = 60; // 30 seconds max wait (60 * 500ms)
+  let resolved = false;
+  const initialDownloaded = torrent.downloaded; // Track starting point
   
-  console.log(`Stream ready at: ${streamUrl}`);
+  // Send progress updates to renderer
+  const sendProgress = () => {
+    if (mainWindow && mainWindow.webContents) {
+      const newDownloaded = torrent.downloaded - initialDownloaded; // Only show NEW data
+      const totalSize = file.length || torrent.length || 0;
+      
+      // Show KB if under 1MB, otherwise MB
+      let downloadedDisplay;
+      let unit;
+      if (newDownloaded < 1024 * 1024) {
+        downloadedDisplay = (newDownloaded / 1024).toFixed(1);
+        unit = 'KB';
+      } else {
+        downloadedDisplay = (newDownloaded / 1024 / 1024).toFixed(2);
+        unit = 'MB';
+      }
+      
+      const progress = {
+        peers: torrent.numPeers || 0,
+        speed: (torrent.downloadSpeed / 1024).toFixed(1),
+        downloaded: downloadedDisplay,
+        downloadUnit: unit,
+        totalSize: (totalSize / 1024 / 1024).toFixed(0),
+        progress: Math.round(torrent.progress * 100),
+        fileName: file.name
+      };
+      mainWindow.webContents.send('torrent-progress', progress);
+    }
+  };
   
-  resolve({
-    name: file.name,
-    url: streamUrl,
-    infoHash: torrent.infoHash
-  });
+  // Wait for torrent to have some data before resolving
+  const checkReady = () => {
+    if (resolved) return;
+    attempts++;
+    
+    const peers = torrent.numPeers || 0;
+    const speed = (torrent.downloadSpeed / 1024).toFixed(1);
+    const downloaded = (torrent.downloaded / 1024 / 1024).toFixed(2);
+    
+    console.log(`Buffering: ${downloaded}MB downloaded, ${peers} peers, ${speed}KB/s (attempt ${attempts}/${maxAttempts})`);
+    
+    // Send progress to renderer
+    sendProgress();
+    
+    // Check if we have any downloaded pieces
+    if (torrent.downloaded > 100000) { // At least 100KB downloaded
+      resolved = true;
+      console.log(`Stream ready at: ${streamUrl}`);
+      resolve({
+        name: file.name,
+        url: streamUrl,
+        infoHash: torrent.infoHash
+      });
+      
+      // Continue sending progress for 10 more seconds after stream is ready
+      // so the video player UI can receive updates when it renders
+      let postResolveAttempts = 0;
+      const continueProgress = () => {
+        if (postResolveAttempts < 20) { // 10 seconds (20 * 500ms)
+          postResolveAttempts++;
+          sendProgress();
+          setTimeout(continueProgress, 500);
+        }
+      };
+      continueProgress();
+      
+    } else if (attempts >= maxAttempts) {
+      resolved = true;
+      console.log('Timeout waiting for torrent data - no peers available');
+      reject(new Error('No peers available - torrent may be dead or slow'));
+    } else {
+      setTimeout(checkReady, 500);
+    }
+  };
+  
+  // Start checking
+  checkReady();
 }
 
 // Deprecated startServer function removed

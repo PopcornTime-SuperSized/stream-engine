@@ -1,7 +1,7 @@
 // Banner Configuration
 // Toggle between 'local' and 'external' banner sources
 
-const BANNER_SOURCE = 'local'; // Options: 'local' | 'external'
+const BANNER_SOURCE = 'external'; // Options: 'local' | 'external'
 
 const bannerConfig = {
   local: {

@@ -118,6 +118,49 @@ We evaluated **PWA (Progressive Web Apps)** as an alternative but rejected it fo
 *   **Episode Ordering**: Seasons sorted newest-first (after Specials), episodes reversed.
 *   **Responsive Design**: Hidden elements on smaller screens, flexible layouts.
 
+### 14. Advanced Torrent Selection (v0.2.1)
+*   **Multi-Source Dropdown**: Quality badges now expand to show ALL available torrents per quality tier.
+    *   Click quality badge → dropdown shows every torrent at that resolution.
+    *   Each option displays: title, seed count, peer count, file size.
+    *   Allows users to try alternative sources if one fails.
+    *   Count indicator shows number of options per quality (e.g., "1080p (7)").
+*   **Works for both Movies and TV Episodes**.
+
+### 15. Real-Time Buffering Stats
+*   **Video Player Overlay**: Shows live torrent statistics during buffering.
+    *   Peer count and download speed (e.g., "32 peers • 125.5 KB/s").
+    *   Downloaded amount with dynamic units (KB for small, MB for large).
+    *   Total file size display (e.g., "5.25 MB / 1500 MB").
+*   **DetailView Status**: Spinner with "Connecting to peers and buffering..." message while stream initializes.
+*   **Progress Tracking**: Only shows NEW data downloaded since stream started (not cached data).
+
+### 16. Torrent Lifecycle Management
+*   **Automatic Cleanup**: Previous torrents destroyed when starting a new stream.
+*   **Stop Playback**: Clicking X button (hover-visible) stops torrent and cleans up.
+*   **Close DetailView**: Closing the detail modal stops any active downloads.
+*   **Single Download Policy**: Only one torrent active at a time to prevent resource conflicts.
+*   **IPC Handler**: `stop-stream` command for explicit torrent termination.
+
+### 17. Video Player Polish
+*   **Minimal Close Button**: Small X icon, only visible on hover over video.
+*   **Error Display**: Shows video loading errors in the buffering overlay.
+*   **Event Logging**: Console logs for canPlay, waiting, playing, and error events.
+
+### 18. Code Refactoring & Shared Utilities
+*   **Electron IPC Helper** (`/src/utils/electron.js`):
+    *   Centralized `getElectron()` function used by App.js and DetailView.js.
+    *   Dual fallback: tries `window.electron` (preload), falls back to `window.require`.
+    *   Exposes `searchTorrents`, `startStream`, `stopStream` methods.
+*   **Torrent Utilities** (`/src/utils/torrent.js`):
+    *   `getQuality(title)` - Detects resolution from torrent title (4K, 1080p, 720p, etc.).
+    *   `getQualityColor(quality)` - Returns Tailwind color classes for quality badges.
+    *   `groupAllByQuality(torrents)` - Groups torrents by quality tier, sorted by seeds.
+*   **Removed Duplication**:
+    *   Eliminated ~70 lines of duplicate helper functions from DetailView.js.
+    *   Removed unused `torrentProgress` state from App.js (using DOM manipulation).
+    *   Consolidated IPC helper definitions into single source of truth.
+*   **Branding Update**: Renamed app to **PopcornTime<sup>X</sup>** across Navbar and DetailView.
+
 ## How to Run
 ```bash
 # Install dependencies
@@ -134,5 +177,7 @@ npm run dist
 | File | Purpose |
 |------|---------|
 | `/src/config/banners.js` | Toggle between local/external banner sources |
+| `/src/utils/electron.js` | Shared Electron IPC helper |
+| `/src/utils/torrent.js` | Quality detection & grouping utilities |
 | `/public/banners/*.html` | Local banner HTML files |
 | `.env` | TMDB API key (`REACT_APP_TMDB_API_KEY`) |

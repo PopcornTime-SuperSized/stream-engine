@@ -1,61 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { tmdb } from '../services/tmdb';
 import { getBannerUrls } from '../config/banners';
-
-// Helper to get Electron IPC
-const getElectron = () => {
-  if (window.electron) return window.electron;
-  if (window.require) {
-    try {
-      const { ipcRenderer } = window.require('electron');
-      return {
-        searchTorrents: (q) => ipcRenderer.invoke('search-torrents', q),
-        startStream: (m) => ipcRenderer.invoke('start-stream', m)
-      };
-    } catch (e) {
-      return null;
-    }
-  }
-  return null;
-};
-
-// Helper to categorize torrent quality
-const getQuality = (title) => {
-  const t = title.toLowerCase();
-  if (t.includes('2160p') || t.includes('4k') || t.includes('uhd')) return '4K';
-  if (t.includes('1080p') || t.includes('1080')) return '1080p';
-  if (t.includes('720p') || t.includes('720')) return '720p';
-  if (t.includes('480p') || t.includes('480')) return '480p';
-  if (t.includes('hdtv') || t.includes('hdrip')) return 'HD';
-  return 'SD';
-};
-
-const getQualityColor = (quality) => {
-  const colors = {
-    '4K': 'bg-purple-600 hover:bg-purple-700',
-    '1080p': 'bg-green-600 hover:bg-green-700',
-    '720p': 'bg-blue-600 hover:bg-blue-700',
-    '480p': 'bg-yellow-600 hover:bg-yellow-700',
-    'HD': 'bg-teal-600 hover:bg-teal-700',
-    'SD': 'bg-gray-600 hover:bg-gray-700'
-  };
-  return colors[quality] || colors['SD'];
-};
-
-// Group torrents by quality, pick best per quality
-const groupByQuality = (torrents) => {
-  const groups = {};
-  torrents.forEach(t => {
-    const q = getQuality(t.title);
-    if (!groups[q] || (t.seeds || 0) > (groups[q].seeds || 0)) {
-      groups[q] = t;
-    }
-  });
-  const priority = { '4K': 5, '1080p': 4, '720p': 3, 'HD': 2, '480p': 1, 'SD': 0 };
-  return Object.entries(groups)
-    .map(([quality, torrent]) => ({ quality, torrent, seeds: torrent.seeds || 0 }))
-    .sort((a, b) => (priority[b.quality] || 0) - (priority[a.quality] || 0));
-};
+import { getElectron } from '../utils/electron';
+import { getQualityColor, groupAllByQuality } from '../utils/torrent';
 
 const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
   const [details, setDetails] = useState(null);
@@ -69,10 +16,13 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
   const [episodeTorrents, setEpisodeTorrents] = useState({});
   const [loadingTorrents, setLoadingTorrents] = useState(null);
   const [streamingStatus, setStreamingStatus] = useState('');
+  const [expandedTvQuality, setExpandedTvQuality] = useState(null); // For TV dropdown
   
   // Movie quality selection state
   const [movieTorrents, setMovieTorrents] = useState(null);
   const [loadingMovieTorrents, setLoadingMovieTorrents] = useState(false);
+  const [movieTorrentsFetched, setMovieTorrentsFetched] = useState(false);
+  const [expandedQuality, setExpandedQuality] = useState(null); // For dropdown
   
   const electron = getElectron();
   const banners = getBannerUrls();
@@ -84,21 +34,6 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
         if (type === 'movie') {
           const data = await tmdb.getMovieDetails(item.id);
           setDetails(data);
-          
-          // Immediately fetch movie torrents
-          if (electron) {
-            setLoadingMovieTorrents(true);
-            try {
-              const movieYear = new Date(data.release_date).getFullYear();
-              const query = `${data.title} ${movieYear}`;
-              const torrents = await electron.searchTorrents(query);
-              setMovieTorrents(torrents || []);
-            } catch (err) {
-              console.error('Failed to fetch movie torrents:', err);
-              setMovieTorrents([]);
-            }
-            setLoadingMovieTorrents(false);
-          }
         } else {
           const data = await tmdb.getTVDetails(item.id);
           setDetails(data);
@@ -128,6 +63,31 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
 
     fetchDetails();
   }, [item.id, type]);
+
+  // Fetch movie torrents (simplified - same approach as TV episodes)
+  useEffect(() => {
+    if (type !== 'movie' || !details || !electron) return;
+    if (movieTorrentsFetched) return; // Already fetched
+    
+    const fetchTorrents = async () => {
+      setMovieTorrentsFetched(true);
+      setLoadingMovieTorrents(true);
+      
+      const movieYear = new Date(details.release_date).getFullYear();
+      const query = `${details.title} ${movieYear}`;
+      
+      try {
+        const results = await electron.searchTorrents(query);
+        setMovieTorrents(results || []);
+      } catch (err) {
+        console.error('Torrent search failed:', err);
+        setMovieTorrents([]);
+      }
+      setLoadingMovieTorrents(false);
+    };
+    
+    fetchTorrents();
+  }, [type, details, electron, movieTorrentsFetched]);
 
   useEffect(() => {
     const fetchEpisodes = async () => {
@@ -179,9 +139,8 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
         {/* Navigation Bar with Close Button */}
         <nav className="bg-gray-900 text-white p-4 shadow-lg flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="flex flex-col leading-none">
-              <span className="text-2xl font-bold text-red-600">PopcornTime SS</span>
-              <span className="text-white text-sm font-normal tracking-wide">(SuperSized)</span>
+            <div className="flex items-center">
+              <span className="text-2xl font-bold text-red-600">PopcornTime<sup className="text-xs">X</sup></span>
             </div>
           </div>
           <button 
@@ -234,36 +193,67 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                   <div className="text-gray-500">No sources found for this movie.</div>
                 ) : movieTorrents ? (
                   <div className="flex flex-wrap gap-2">
-                    {groupByQuality(movieTorrents).map((opt, idx) => (
-                      <button
-                        key={idx}
-                        onClick={async () => {
-                          setStreamingStatus(`Starting stream: ${opt.torrent.title}...`);
-                          try {
-                            const streamInfo = await electron.startStream(opt.torrent.magnet);
-                            if (onStreamStart) {
-                              onStreamStart(streamInfo.url, details.title);
-                            }
-                          } catch (err) {
-                            setStreamingStatus(`Playback failed: ${err.message}`);
-                          }
-                        }}
-                        className={`${getQualityColor(opt.quality)} text-white px-4 py-2 rounded font-semibold flex items-center space-x-2 transition-all`}
-                      >
-                        <span>{opt.quality}</span>
-                        <span className="opacity-70">•</span>
-                        <span className="text-green-300 flex items-center">
-                          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    {groupAllByQuality(movieTorrents).map((group, idx) => (
+                      <div key={idx} className="relative">
+                        <button
+                          onClick={() => setExpandedQuality(expandedQuality === group.quality ? null : group.quality)}
+                          className={`${getQualityColor(group.quality)} text-white px-4 py-2 rounded font-semibold flex items-center space-x-2 transition-all`}
+                        >
+                          <span>{group.quality}</span>
+                          <span className="opacity-70">•</span>
+                          <span className="text-green-300 flex items-center">
+                            <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                            </svg>
+                            {group.bestSeeds}
+                          </span>
+                          <span className="text-xs opacity-70">({group.torrents.length})</span>
+                          <svg className={`w-4 h-4 transition-transform ${expandedQuality === group.quality ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                           </svg>
-                          {opt.seeds}
-                        </span>
-                      </button>
+                        </button>
+                        {expandedQuality === group.quality && (
+                          <div className="absolute top-full left-0 mt-1 bg-gray-800 rounded-lg shadow-xl z-50 min-w-[300px] max-h-60 overflow-y-auto">
+                            {group.torrents.map((torrent, tidx) => (
+                              <button
+                                key={tidx}
+                                onClick={async () => {
+                                  setExpandedQuality(null);
+                                  setStreamingStatus(`Starting stream: ${torrent.title}...`);
+                                  try {
+                                    const streamInfo = await electron.startStream(torrent.magnet);
+                                    if (onStreamStart) {
+                                      onStreamStart(streamInfo.url, details.title);
+                                      setStreamingStatus(''); // Clear status when video player opens
+                                    }
+                                  } catch (err) {
+                                    setStreamingStatus(`Playback failed: ${err.message}`);
+                                  }
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-700 border-b border-gray-700 last:border-0"
+                              >
+                                <div className="text-white text-sm truncate">{torrent.title}</div>
+                                <div className="flex items-center space-x-3 text-xs mt-1">
+                                  <span className="text-green-400">↑ {torrent.seeds || 0} seeds</span>
+                                  <span className="text-red-400">↓ {torrent.peers || 0} peers</span>
+                                  {torrent.size && <span className="text-gray-400">{torrent.size}</span>}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 ) : null}
                 {streamingStatus && type === 'movie' && (
-                  <div className="mt-3 text-gray-400 text-sm">{streamingStatus}</div>
+                  <div className="mt-4 flex items-center space-x-3 bg-gray-800/80 px-4 py-3 rounded-lg">
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-red-600"></div>
+                    <div>
+                      <p className="text-white text-sm font-medium">{streamingStatus}</p>
+                      <p className="text-gray-500 text-xs">Connecting to peers and buffering...</p>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -292,9 +282,15 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
 
           {/* Status Message */}
           {streamingStatus && (
-            <div className="bg-gray-800 text-gray-300 px-4 py-2 text-sm rounded mb-4 flex justify-between items-center">
-              <span>{streamingStatus}</span>
-              <button onClick={() => setStreamingStatus('')} className="hover:text-white">&times;</button>
+            <div className="bg-gray-800 text-gray-300 px-4 py-3 rounded mb-4 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-red-600"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">{streamingStatus}</p>
+                  <p className="text-gray-500 text-xs">Connecting to peers and buffering...</p>
+                </div>
+              </div>
+              <button onClick={() => setStreamingStatus('')} className="hover:text-white text-gray-400">&times;</button>
             </div>
           )}
 
@@ -304,7 +300,6 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
               const isExpanded = expandedEpisode === epKey;
               const torrents = episodeTorrents[epKey];
               const isLoadingThis = loadingTorrents === epKey;
-              const qualityOptions = torrents ? groupByQuality(torrents) : [];
 
               const handleEpisodeClick = async () => {
                 if (isExpanded) {
@@ -348,6 +343,7 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                   // Call parent to handle stream URL
                   if (onStreamStart) {
                     onStreamStart(streamInfo.url, `${details.name} S${selectedSeason}E${episode.episode_number}`);
+                    setStreamingStatus(''); // Clear status when video player opens
                   }
                 } catch (err) {
                   setStreamingStatus(`Playback failed: ${err.message}`);
@@ -355,7 +351,7 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
               };
 
               return (
-                <div key={episode.id} className="bg-gray-800 rounded overflow-hidden border border-transparent hover:border-gray-600 transition-all">
+                <div key={episode.id} className="bg-gray-800 rounded border border-transparent hover:border-gray-600 transition-all overflow-visible">
                   {/* Episode Row */}
                   <div 
                     className="p-4 flex items-center cursor-pointer hover:bg-gray-700 transition-all"
@@ -389,35 +385,72 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
 
                   {/* Expanded Quality Options */}
                   {isExpanded && (
-                    <div className="px-4 pb-4 pt-2 bg-gray-850 border-t border-gray-700">
+                    <div className="px-4 pb-4 pt-2 bg-gray-850 border-t border-gray-700 overflow-visible">
                       {isLoadingThis ? (
                         <div className="flex items-center space-x-2 text-gray-400">
                           <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-red-600"></div>
                           <span className="text-sm">Searching for sources...</span>
                         </div>
-                      ) : qualityOptions.length === 0 ? (
+                      ) : !torrents || torrents.length === 0 ? (
                         <div className="text-gray-500 text-sm">No sources found for this episode.</div>
                       ) : (
                         <div className="flex flex-wrap gap-2">
-                          {qualityOptions.map((opt, idx) => (
-                            <button
-                              key={idx}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleQualitySelect(opt.torrent);
-                              }}
-                              className={`${getQualityColor(opt.quality)} text-white px-3 py-2 rounded text-sm font-semibold flex items-center space-x-2 transition-all`}
-                            >
-                              <span>{opt.quality}</span>
-                              <span className="opacity-70">•</span>
-                              <span className="text-green-300 flex items-center">
-                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                          {groupAllByQuality(torrents).map((group, idx) => (
+                            <div key={idx} className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const key = `${epKey}-${group.quality}`;
+                                  setExpandedTvQuality(expandedTvQuality === key ? null : key);
+                                }}
+                                className={`${getQualityColor(group.quality)} text-white px-3 py-2 rounded text-sm font-semibold flex items-center space-x-2 transition-all`}
+                              >
+                                <span>{group.quality}</span>
+                                <span className="opacity-70">•</span>
+                                <span className="text-green-300 flex items-center">
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                  {group.bestSeeds}
+                                </span>
+                                <span className="text-xs opacity-70">({group.torrents.length})</span>
+                                <svg className={`w-3 h-3 transition-transform ${expandedTvQuality === `${epKey}-${group.quality}` ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                                 </svg>
-                                {opt.seeds}
-                              </span>
-                            </button>
+                              </button>
+                              {expandedTvQuality === `${epKey}-${group.quality}` && (
+                                <div className="absolute top-full left-0 mt-1 bg-gray-800 rounded-lg shadow-xl z-[100] min-w-[280px] max-h-48 overflow-y-auto">
+                                  {group.torrents.map((torrent, tidx) => (
+                                    <button
+                                      key={tidx}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedTvQuality(null);
+                                        handleQualitySelect(torrent);
+                                      }}
+                                      className="w-full text-left px-3 py-2 hover:bg-gray-700 border-b border-gray-700 last:border-0"
+                                    >
+                                      <div className="text-white text-xs truncate">{torrent.title}</div>
+                                      <div className="flex items-center space-x-3 text-xs mt-1">
+                                        <span className="text-green-400">↑ {torrent.seeds || 0}</span>
+                                        <span className="text-red-400">↓ {torrent.peers || 0}</span>
+                                        {torrent.size && <span className="text-gray-400">{torrent.size}</span>}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           ))}
+                        </div>
+                      )}
+                      {streamingStatus && (
+                        <div className="mt-3 flex items-center space-x-3 bg-gray-700/50 px-3 py-2 rounded-lg">
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-red-600"></div>
+                          <div>
+                            <p className="text-white text-sm">{streamingStatus}</p>
+                            <p className="text-gray-500 text-xs">Connecting to peers and buffering...</p>
+                          </div>
                         </div>
                       )}
                     </div>

@@ -4,23 +4,7 @@ import MediaGrid from './components/MediaGrid';
 import DetailView from './components/DetailView';
 import QualitySelector from './components/QualitySelector';
 import { tmdb } from './services/tmdb';
-
-// Helper to get Electron IPC
-const getIpcRenderer = () => {
-  if (window.electron) return window.electron; // Preload method
-  if (window.require) {
-    try {
-      const { ipcRenderer } = window.require('electron');
-      return {
-        searchTorrents: (q) => ipcRenderer.invoke('search-torrents', q),
-        startStream: (m) => ipcRenderer.invoke('start-stream', m)
-      };
-    } catch (e) {
-      console.error('Failed to require electron:', e);
-    }
-  }
-  return null;
-};
+import { getElectron } from './utils/electron';
 
 function App() {
   // UI State
@@ -37,7 +21,36 @@ function App() {
   const [torrentOptions, setTorrentOptions] = useState(null);
   const [pendingMetadata, setPendingMetadata] = useState(null);
 
-  const electron = getIpcRenderer();
+  const electron = getElectron();
+  
+  // Listen for torrent progress updates - use DOM manipulation to avoid re-renders
+  useEffect(() => {
+    let cleanup = null;
+    
+    // Try direct require (works with nodeIntegration: true, contextIsolation: false)
+    try {
+      if (window.require) {
+        const { ipcRenderer } = window.require('electron');
+        const handler = (event, progress) => {
+          const statsDiv = document.getElementById('progress-stats');
+          if (statsDiv) {
+            const unit = progress.downloadUnit || 'MB';
+            const sizeDisplay = progress.totalSize ? `${progress.downloaded} ${unit} / ${progress.totalSize} MB` : `${progress.downloaded} ${unit}`;
+            statsDiv.innerHTML = `
+              <p class="text-green-400 text-sm font-mono">${progress.peers} peers • ${progress.speed} KB/s</p>
+              <p class="text-gray-400 text-sm font-mono">${sizeDisplay}</p>
+            `;
+          }
+        };
+        ipcRenderer.on('torrent-progress', handler);
+        cleanup = () => ipcRenderer.removeListener('torrent-progress', handler);
+      }
+    } catch (e) {
+      console.log('Could not set up progress listener:', e.message);
+    }
+    
+    return () => { if (cleanup) cleanup(); };
+  }, []);
 
   // Helper to get API sort value
   const getSortParam = (sortKey, type) => {
@@ -196,21 +209,63 @@ function App() {
 
         {/* Video Player Overlay */}
         {streamUrl && (
-          <div className="fixed inset-0 z-[200] bg-black flex flex-col justify-center">
+          <div className="fixed inset-0 z-[300] bg-black flex flex-col justify-center group">
+            {/* Buffering Spinner Overlay - uses DOM manipulation to avoid re-renders */}
+            <div id="video-loading" className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-red-600 mx-auto mb-4"></div>
+                <p className="text-white text-lg">Buffering stream...</p>
+                <div id="progress-stats" className="mt-3 space-y-1">
+                  <p className="text-gray-400 text-sm">Connecting to peers...</p>
+                </div>
+              </div>
+            </div>
             <video 
+              key={streamUrl}
               src={streamUrl} 
               controls 
               autoPlay 
               className="w-full h-full max-h-screen"
+              onCanPlay={(e) => {
+                console.log('Video canPlay event');
+                const loader = document.getElementById('video-loading');
+                if (loader) loader.style.display = 'none';
+              }}
+              onWaiting={(e) => {
+                console.log('Video waiting event');
+                const loader = document.getElementById('video-loading');
+                if (loader) loader.style.display = 'flex';
+              }}
+              onPlaying={(e) => {
+                console.log('Video playing event');
+                const loader = document.getElementById('video-loading');
+                if (loader) loader.style.display = 'none';
+              }}
+              onError={(e) => {
+                console.error('Video error:', e.target.error);
+                const statsDiv = document.getElementById('progress-stats');
+                if (statsDiv) {
+                  statsDiv.innerHTML = `<p class="text-red-400 text-sm">Error loading video: ${e.target.error?.message || 'Unknown error'}</p>`;
+                }
+              }}
+              onLoadStart={(e) => console.log('Video loadStart, src:', streamUrl)}
             />
+            {/* Close button - small X, visible on hover */}
             <button 
               onClick={() => {
+                // Stop torrent and cleanup
+                if (electron && electron.stopStream) {
+                  electron.stopStream();
+                }
                 setStreamUrl(null);
                 setLoading(false);
               }}
-              className="absolute top-4 right-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-bold"
+              className="absolute top-3 right-3 w-8 h-8 bg-black/60 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+              title="Stop Playback"
             >
-              Stop Playback
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
         )}
@@ -228,7 +283,13 @@ function App() {
         <DetailView 
           item={selectedItem} 
           type={category}
-          onClose={() => setSelectedItem(null)}
+          onClose={() => {
+            // Stop any active torrent when closing detail view
+            if (electron && electron.stopStream) {
+              electron.stopStream();
+            }
+            setSelectedItem(null);
+          }}
           onPlay={handlePlay}
           onStreamStart={(url, title) => {
             setStreamUrl(url);

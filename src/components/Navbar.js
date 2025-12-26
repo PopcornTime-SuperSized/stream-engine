@@ -40,9 +40,8 @@ const Navbar = ({ onSearch, onCategoryChange, activeCategory, onSortChange, acti
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-8">
             {/* Logo Section */}
-            <div className="flex flex-col leading-none">
-              <span className="text-2xl font-bold text-red-600">PopcornTime SS</span>
-              <span className="text-white text-sm font-normal tracking-wide">(SuperSized)</span>
+            <div className="flex items-center">
+              <span className="text-2xl font-bold text-red-600">PopcornTime<sup className="text-xs">X</sup></span>
             </div>
             
             {/* Navigation Buttons */}
