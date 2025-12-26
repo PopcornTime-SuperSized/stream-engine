@@ -5,34 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Banner 2</title>
     <style>
-        html, body {
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
             width: 100%;
-            height: 100vh;
+            height: 100px;
             overflow: hidden;
             background-color: #000000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
-        
+
         body {
             display: flex;
             justify-content: center;
             align-items: center;
-            border-left: 1px solid #333;
-            box-sizing: border-box;
         }
 
         a.full-link {
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             width: 100%;
-            height: 100%;
+            height: 100px;
             text-decoration: none;
             cursor: pointer;
             transition: background-color 0.3s;
+            border-left: 1px solid #333;
         }
 
         a.full-link:hover {
@@ -48,11 +50,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            position: relative;
-            top: -2px;
-            
-            /* Animation: Dramatic Bounce In from Right (Delayed) */
-            animation: dramaticBounceRight 2s cubic-bezier(0.280, 0.840, 0.420, 1) 0.1s backwards;
+            animation: bounceInRight 1.5s ease-out 0.1s backwards;
             transition: transform 0.2s ease-out;
         }
 
@@ -62,7 +60,7 @@
             font-weight: 900;
             line-height: 1;
             text-align: center;
-            margin-bottom: 5px;
+            margin: 0;
             letter-spacing: -0.5px;
         }
 
@@ -70,31 +68,25 @@
             color: #ffffff;
             font-size: 16px;
             font-weight: 600;
-            margin: 0;
+            margin: 5px 0 0 0;
             text-align: center;
             letter-spacing: 0.5px;
         }
 
-        /* 
-           Super Dramatic Bounce Right
-        */
-        @keyframes dramaticBounceRight {
+        @keyframes bounceInRight {
             0% {
                 opacity: 0;
-                transform: translateX(150%);
+                transform: translateX(100%);
             }
-            30% {
+            40% {
                 opacity: 1;
-                transform: translateX(-40px);
+                transform: translateX(-30px);
             }
-            50% {
-                transform: translateX(20px);
+            60% {
+                transform: translateX(15px);
             }
-            70% {
-                transform: translateX(-10px);
-            }
-            85% {
-                transform: translateX(5px);
+            80% {
+                transform: translateX(-8px);
             }
             100% {
                 transform: translateX(0);

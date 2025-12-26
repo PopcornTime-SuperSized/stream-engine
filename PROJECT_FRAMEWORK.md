@@ -73,6 +73,51 @@ We evaluated **PWA (Progressive Web Apps)** as an alternative but rejected it fo
     *   Since we do not use a costly Windows EV certificate, users will see a "Windows protected your PC" prompt.
     *   Documented the "More info -> Run anyway" bypass in `README.md` and `INSTALL.md`.
 
+### 10. TMDB Integration & Netflix-Style UI (v0.2.0)
+*   **TMDB API**: Replaced basic torrent search UI with a rich media discovery experience.
+    *   Movie and TV Show browsing with poster grids.
+    *   Sorting options: Popularity, A-Z, Rating, Newest.
+    *   Search functionality across movies and TV shows.
+    *   Fetches 5 pages (~100 items) in parallel for expanded catalog.
+*   **DetailView**: Netflix-style detail modal with:
+    *   Hero backdrop image with gradient overlay.
+    *   Poster, title, year, rating, runtime, genres, and overview.
+    *   TV Shows: Season selector (Specials first, then newest to oldest).
+    *   Episode list with thumbnails (newest episodes first).
+
+### 11. Ad Banner System
+*   **Dual Banner Header**: Two iframe-based ad banners above the navigation bar.
+    *   Sticky positioning on both main view and detail view.
+    *   100px fixed height with perfect vertical centering.
+    *   Bounce-in animations (left banner from left, right banner from right).
+    *   Hover effects with scale transform.
+*   **Banner Source Toggle** (`/src/config/banners.js`):
+    *   `BANNER_SOURCE = 'local'` → Uses `/banners/column_1.html` and `/banners/column_2.html`.
+    *   `BANNER_SOURCE = 'external'` → Uses `https://nsdb.com/streamengine/banners/` URLs.
+    *   Single config file controls both Navbar and DetailView components.
+
+### 12. Quality Selection & Streaming UX
+*   **Movies**: Inline quality options displayed immediately in detail view.
+    *   Torrents fetched automatically when movie details load.
+    *   Color-coded quality badges with seed counts replace "Watch Now" button.
+    *   Loading spinner while searching for sources.
+    *   "No sources found" message if unavailable.
+*   **TV Episodes**: Inline expandable quality selection.
+    *   Click episode row → expands to show quality badges.
+    *   Torrents searched on-demand per episode (cached after first fetch).
+    *   Quality badges display: resolution + seed count.
+    *   User stays in DetailView throughout the selection process.
+    *   "No sources found" message if no torrents available.
+*   **Quality Detection**: Parses torrent titles for resolution keywords.
+    *   Groups by quality, picks highest-seeded option per tier.
+    *   Priority: 4K > 1080p > 720p > HD > 480p > SD.
+
+### 13. UI/UX Refinements
+*   **Sticky Header**: Banners + Navbar stay fixed during scroll.
+*   **Z-Index Management**: Proper layering for modals, headers, and overlays.
+*   **Episode Ordering**: Seasons sorted newest-first (after Specials), episodes reversed.
+*   **Responsive Design**: Hidden elements on smaller screens, flexible layouts.
+
 ## How to Run
 ```bash
 # Install dependencies
@@ -84,3 +129,10 @@ npm run dev
 # Build for Production (Detects OS automatically)
 npm run dist
 ```
+
+## Configuration Files
+| File | Purpose |
+|------|---------|
+| `/src/config/banners.js` | Toggle between local/external banner sources |
+| `/public/banners/*.html` | Local banner HTML files |
+| `.env` | TMDB API key (`REACT_APP_TMDB_API_KEY`) |

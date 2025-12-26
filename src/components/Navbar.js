@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { getBannerUrls } from '../config/banners';
 
 const Navbar = ({ onSearch, onCategoryChange, activeCategory, onSortChange, activeSort }) => {
   const [query, setQuery] = useState('');
+  const banners = getBannerUrls();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -20,13 +22,13 @@ const Navbar = ({ onSearch, onCategoryChange, activeCategory, onSortChange, acti
       {/* Ad Banners Row */}
       <div className="grid grid-cols-2 bg-black h-[100px] w-full relative z-[100]">
         <iframe 
-          src="/banners/column_1.html" 
+          src={banners.column1}
           className="w-full h-full border-0"
           title="Ad Banner 1"
           scrolling="no"
         />
         <iframe 
-          src="/banners/column_2.html" 
+          src={banners.column2}
           className="w-full h-full border-0"
           title="Ad Banner 2"
           scrolling="no"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar';
 import MediaGrid from './components/MediaGrid';
 import DetailView from './components/DetailView';
+import QualitySelector from './components/QualitySelector';
 import { tmdb } from './services/tmdb';
 
 // Helper to get Electron IPC
@@ -31,6 +32,10 @@ function App() {
   const [status, setStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('popularity');
+  
+  // Quality Selection State
+  const [torrentOptions, setTorrentOptions] = useState(null);
+  const [pendingMetadata, setPendingMetadata] = useState(null);
 
   const electron = getIpcRenderer();
 
@@ -104,8 +109,12 @@ function App() {
 
   // The Magic: Resolve Metadata -> Torrent -> Stream
   const handlePlay = async (metadata) => {
+    console.log('handlePlay called with:', metadata);
+    
     if (!electron) {
-      setStatus('Error: Desktop App required for streaming.');
+      console.warn('Electron IPC not available - running in browser mode');
+      setSelectedItem(null);
+      setStatus('Error: Desktop App required for streaming. Please run the Electron app.');
       return;
     }
 
@@ -116,13 +125,14 @@ function App() {
     try {
       // 1. Construct Search Query
       let query = '';
+      let displayTitle = metadata.title;
       if (metadata.type === 'movie') {
         query = `${metadata.title} ${metadata.year}`;
       } else {
-        // Format: Show Name S01E01
         const s = metadata.season.toString().padStart(2, '0');
         const e = metadata.episode.toString().padStart(2, '0');
         query = `${metadata.title} S${s}E${e}`;
+        displayTitle = `${metadata.title} S${s}E${e}`;
       }
 
       console.log('Resolving Torrent for:', query);
@@ -134,24 +144,35 @@ function App() {
         throw new Error('No torrents found for this title.');
       }
 
-      // 3. Pick Best Torrent (Most Seeds)
-      // Logic: Sort by seeds, take top 1.
-      const bestMatch = torrents.sort((a, b) => b.seeds - a.seeds)[0];
-      
-      setStatus(`Found source: ${bestMatch.title} (${bestMatch.seeds} seeds). Starting stream...`);
-
-      // 4. Start Stream
-      const streamInfo = await electron.startStream(bestMatch.magnet);
-      setStreamUrl(streamInfo.url);
-      setStatus(`Now Playing: ${metadata.title}`);
+      // 3. Show Quality Selector
+      setLoading(false);
+      setStatus('');
+      setPendingMetadata({ ...metadata, displayTitle });
+      setTorrentOptions(torrents);
 
     } catch (err) {
       console.error(err);
       setStatus(`Playback Failed: ${err.message}`);
       setLoading(false);
-      // Re-open detail view so user isn't lost? 
-      // For now, let's just stay on grid but show error
     }
+  };
+
+  // Handle Quality Selection
+  const handleQualitySelect = async (torrent) => {
+    setTorrentOptions(null);
+    setLoading(true);
+    setStatus(`Starting stream: ${torrent.title} (${torrent.seeds} seeds)...`);
+
+    try {
+      const streamInfo = await electron.startStream(torrent.magnet);
+      setStreamUrl(streamInfo.url);
+      setStatus(`Now Playing: ${pendingMetadata?.displayTitle || pendingMetadata?.title}`);
+    } catch (err) {
+      console.error(err);
+      setStatus(`Playback Failed: ${err.message}`);
+      setLoading(false);
+    }
+    setPendingMetadata(null);
   };
 
   return (
@@ -209,6 +230,23 @@ function App() {
           type={category}
           onClose={() => setSelectedItem(null)}
           onPlay={handlePlay}
+          onStreamStart={(url, title) => {
+            setStreamUrl(url);
+            setStatus(`Now Playing: ${title}`);
+          }}
+        />
+      )}
+
+      {/* Quality Selector Modal */}
+      {torrentOptions && (
+        <QualitySelector
+          torrents={torrentOptions}
+          title={pendingMetadata?.displayTitle || pendingMetadata?.title}
+          onSelect={handleQualitySelect}
+          onClose={() => {
+            setTorrentOptions(null);
+            setPendingMetadata(null);
+          }}
         />
       )}
     </div>

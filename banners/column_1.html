@@ -5,16 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Banner 1</title>
     <style>
-        html, body {
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
             width: 100%;
-            height: 100vh;
+            height: 100px;
             overflow: hidden;
             background-color: #000000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
-        
+
         body {
             display: flex;
             justify-content: center;
@@ -23,11 +27,10 @@
 
         a.full-link {
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             width: 100%;
-            height: 100%;
+            height: 100px;
             text-decoration: none;
             cursor: pointer;
             transition: background-color 0.3s;
@@ -46,23 +49,17 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            /* Explicitly centered */
-            position: relative;
-            top: -2px; /* Visual tweak for perfect optical center */
-            
-            /* Animation */
-            animation: dramaticBounceLeft 2s cubic-bezier(0.280, 0.840, 0.420, 1) forwards;
+            animation: bounceInLeft 1.5s ease-out;
             transition: transform 0.2s ease-out;
         }
 
         .title {
-            color: #dc2626; /* Red-600 */
+            color: #dc2626;
             font-size: 28px;
             font-weight: 900;
             line-height: 1;
-            text-transform: uppercase;
             text-align: center;
-            margin-bottom: 5px;
+            margin: 0;
             letter-spacing: -0.5px;
         }
 
@@ -70,34 +67,31 @@
             color: #ffffff;
             font-size: 16px;
             font-weight: 600;
-            margin: 0;
+            margin: 5px 0 0 0;
             text-align: center;
             letter-spacing: 0.5px;
         }
 
         /* 
-           Super Dramatic Bounce Left (3-4 bounces)
+           Super Dramatic Bounce Left (Multiple overshoots)
         */
-        @keyframes dramaticBounceLeft {
+        @keyframes bounceInLeft {
             0% {
                 opacity: 0;
-                transform: translateX(-150%);
+                transform: translateX(-100%);
             }
-            30% {
+            40% {
                 opacity: 1;
-                transform: translateX(40px); /* Overshoot 1 */
+                transform: translateX(30px);
             }
-            50% {
-                transform: translateX(-20px); /* Overshoot 2 */
+            60% {
+                transform: translateX(-15px);
             }
-            70% {
-                transform: translateX(10px); /* Overshoot 3 */
-            }
-            85% {
-                transform: translateX(-5px); /* Overshoot 4 */
+            80% {
+                transform: translateX(8px);
             }
             100% {
-                transform: translateX(0); /* Settle */
+                transform: translateX(0);
             }
         }
     </style>
