@@ -5,72 +5,105 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Banner 2</title>
     <style>
-        body {
+        html, body {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100vh;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        body {
             display: flex;
             justify-content: center;
             align-items: center;
-            background-color: #000000;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            overflow: hidden;
-            border-left: 1px solid #333; /* Separator */
+            border-left: 1px solid #333;
+            box-sizing: border-box;
         }
-        a {
-            text-decoration: none;
-            text-align: center;
-            width: 100%;
-            height: 100%;
+
+        a.full-link {
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            width: 100%;
+            height: 100%;
+            text-decoration: none;
+            cursor: pointer;
             transition: background-color 0.3s;
         }
-        a:hover {
+
+        a.full-link:hover {
             background-color: #1a1a1a;
         }
-        /* Hover Effect: Scale Up */
-        a:hover .content {
+
+        a.full-link:hover .content {
             transform: scale(1.05);
         }
+
         .content {
             display: flex;
             flex-direction: column;
             align-items: center;
-            /* Entrance Animation (with delay) */
-            animation: slideUpFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s backwards;
-            transition: transform 0.3s ease;
+            justify-content: center;
+            position: relative;
+            top: -2px;
+            
+            /* Animation: Dramatic Bounce In from Right (Delayed) */
+            animation: dramaticBounceRight 2s cubic-bezier(0.280, 0.840, 0.420, 1) 0.1s backwards;
+            transition: transform 0.2s ease-out;
         }
+
         .title {
-            color: #22c55e; /* Green-500 */
-            font-size: 24px;
-            font-weight: 800;
-            line-height: 1.2;
+            color: #22c55e;
+            font-size: 28px;
+            font-weight: 900;
+            line-height: 1;
+            text-align: center;
+            margin-bottom: 5px;
+            letter-spacing: -0.5px;
         }
+
         .subtitle {
             color: #ffffff;
             font-size: 16px;
-            font-weight: 500;
-            margin-top: 4px;
+            font-weight: 600;
+            margin: 0;
+            text-align: center;
+            letter-spacing: 0.5px;
         }
 
-        @keyframes slideUpFade {
-            from {
+        /* 
+           Super Dramatic Bounce Right
+        */
+        @keyframes dramaticBounceRight {
+            0% {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateX(150%);
             }
-            to {
+            30% {
                 opacity: 1;
-                transform: translateY(0);
+                transform: translateX(-40px);
+            }
+            50% {
+                transform: translateX(20px);
+            }
+            70% {
+                transform: translateX(-10px);
+            }
+            85% {
+                transform: translateX(5px);
+            }
+            100% {
+                transform: translateX(0);
             }
         }
     </style>
 </head>
 <body>
-    <a href="https://thelottery.com" target="_blank">
+    <a href="https://thelottery.com" target="_blank" class="full-link">
         <div class="content">
             <div class="title">TheLottery.com</div>
             <div class="subtitle">The Global Crypto Lottery</div>
