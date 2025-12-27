@@ -31,6 +31,7 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
 
   useEffect(() => {
     const fetchDetails = async () => {
+      console.log('DetailView: fetchDetails called for type:', type, 'ID:', item.id, 'CollectionID:', item.collectionId);
       setLoading(true);
       try {
         if (type === 'movie') {
@@ -57,8 +58,12 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
             setSelectedSeason(mostRecent?.season_number || 1);
           }
         } else if (type === 'music') {
-          const data = await itunes.getAlbumDetails(item.collectionId);
+          const collectionId = item.collectionId || item.id;
+          console.log('Fetching album details for collectionId:', collectionId);
+          const data = await itunes.getAlbumDetails(collectionId);
           const results = data.results || [];
+          console.log('iTunes lookup results:', results.length);
+          
           if (results.length > 0) {
             setDetails(results[0]); // Collection info
             // Map tracks to episode-like structure
@@ -71,6 +76,10 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
               still_path: null // No per-track image usually
             }));
             setEpisodes(tracks);
+          } else {
+            console.warn('No album details found in iTunes lookup');
+            // Fallback: use item data if lookup fails
+            setDetails(item); 
           }
         } else if (type === 'game') {
           const data = await steam.getGameDetails(item.id);
@@ -78,6 +87,11 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
         }
       } catch (error) {
         console.error('Failed to fetch details', error);
+        // Fallback to basic item data if fetch fails (especially for Music/Games where list data is rich)
+        if (!details && (type === 'music' || type === 'game')) {
+          console.log('Falling back to basic item data');
+          setDetails(item);
+        }
       }
       setLoading(false);
     };
