@@ -32,30 +32,40 @@ appServer.get('/stream', (req, res) => {
   const isAudio = activeFile.name.match(/\.(mp3|flac|wav|m4a|aac)$/i);
   
   // If we just want to probe or simple stream
-  res.setHeader('Content-Type', isAudio ? 'audio/mp4' : 'video/mp4');
+  res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
 
   // FFmpeg Transcoding Stream
   const stream = activeFile.createReadStream();
   let command = ffmpeg(stream);
 
   if (isAudio) {
-    command = command.noVideo(); // Strip cover art/video streams from audio files
+    command = command
+      .noVideo()
+      .format('mp3')
+      .audioCodec('libmp3lame')
+      .audioBitrate('192k') // Good balance for streaming
+      .audioChannels(2)
+      .audioFilters([
+        'dynaudnorm=f=150:g=15',
+        'volume=1.5'
+      ]);
   } else {
-    command = command.videoCodec('copy');
+    command = command
+      .videoCodec('copy')
+      .format('mp4')
+      .audioCodec('aac')
+      .audioChannels(2)
+      .audioFilters([
+        'dynaudnorm=f=150:g=15',
+        'volume=1.5'
+      ])
+      .outputOptions([
+        '-movflags frag_keyframe+empty_moov',
+        '-deadline realtime'
+      ]);
   }
 
   command = command
-    .audioCodec('aac')
-    .audioChannels(2) // Downmix to stereo
-    .audioFilters([
-      'dynaudnorm=f=150:g=15', // Dynamic Audio Normalizer (boosts quiet parts)
-      'volume=1.5' // Global 150% boost
-    ])
-    .format('mp4')
-    .outputOptions([
-      '-movflags frag_keyframe+empty_moov', // Essential for streaming MP4
-      '-deadline realtime' // For VP9/WebM if we ever switched
-    ])
     .on('error', (err) => {
       // Expected error when client closes stream
       if (err.message.includes('Output stream closed')) return;
