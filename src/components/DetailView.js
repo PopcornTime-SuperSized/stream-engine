@@ -99,9 +99,9 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
     fetchDetails();
   }, [item, type]);
 
-  // Fetch torrents (Movies & Games)
+  // Fetch torrents (Movies & Games & Music Albums)
   useEffect(() => {
-    if ((type !== 'movie' && type !== 'game') || !details || !electron) return;
+    if ((type !== 'movie' && type !== 'game' && type !== 'music') || !details || !electron) return;
     if (movieTorrentsFetched) return; // Already fetched
     
     const fetchTorrents = async () => {
@@ -118,6 +118,9 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
       } else if (type === 'game') {
         query = details.name;
         category = 'Games';
+      } else if (type === 'music') {
+        query = `${details.artistName} ${details.collectionName}`;
+        category = 'Audio';
       }
       
       try {
@@ -412,6 +415,12 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                 // If already fetched, don't refetch
                 if (episodeTorrents[epKey]) return;
                 
+                // For Music, reuse the Album torrents we already fetched
+                if (type === 'music') {
+                  setEpisodeTorrents(prev => ({ ...prev, [epKey]: movieTorrents || [] }));
+                  return;
+                }
+                
                 if (!electron) {
                   setStreamingStatus('Desktop App required for streaming.');
                   return;
@@ -419,19 +428,10 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                 
                 setLoadingTorrents(epKey);
                 try {
-                  let query, category;
-                  if (type === 'music') {
-                    // Search for Artist + Track Name
-                    query = `${details.artistName} ${episode.name}`;
-                    category = 'Audio';
-                  } else {
-                    const s = selectedSeason.toString().padStart(2, '0');
-                    const e = episode.episode_number.toString().padStart(2, '0');
-                    query = `${details.name} S${s}E${e}`;
-                    category = 'TV';
-                  }
-
-                  const results = await electron.searchTorrents(query, category);
+                  const s = selectedSeason.toString().padStart(2, '0');
+                  const e = episode.episode_number.toString().padStart(2, '0');
+                  const query = `${details.name} S${s}E${e}`;
+                  const results = await electron.searchTorrents(query, 'TV');
                   setEpisodeTorrents(prev => ({ ...prev, [epKey]: results || [] }));
                 } catch (err) {
                   console.error('Torrent search failed:', err);
@@ -448,7 +448,10 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                 
                 setStreamingStatus(`Starting stream: ${torrent.title}...`);
                 try {
-                  const streamInfo = await electron.startStream(torrent.magnet);
+                  // For Music, pass the track name to target specific file
+                  const fileName = type === 'music' ? episode.name : null;
+                  const streamInfo = await electron.startStream(torrent.magnet, fileName);
+                  
                   // Call parent to handle stream URL
                   if (onStreamStart) {
                     const label = type === 'music' 

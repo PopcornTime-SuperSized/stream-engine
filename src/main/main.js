@@ -149,7 +149,7 @@ ipcMain.handle('search-torrents', async (event, query, category = 'All') => {
 });
 
 // IPC: Start Streaming
-ipcMain.handle('start-stream', async (event, magnetURI) => {
+ipcMain.handle('start-stream', async (event, magnetURI, fileName = null) => {
   return new Promise((resolve, reject) => {
     // Validate magnet URI
     if (!magnetURI || typeof magnetURI !== 'string') {
@@ -173,19 +173,38 @@ ipcMain.handle('start-stream', async (event, magnetURI) => {
     activeFile = null;
 
     console.log(`Starting stream for magnet: ${magnetURI}`);
+    if (fileName) console.log(`Targeting file: ${fileName}`);
     
     try {
       const torrent = client.add(magnetURI);
       
       torrent.on('ready', () => {
         console.log('Torrent added, looking for video file...');
-      
-        // Find the largest file, usually the video or main audio file
-        const file = torrent.files.find(function (file) {
-          const name = file.name.toLowerCase();
-          return name.endsWith('.mp4') || name.endsWith('.mkv') || name.endsWith('.avi') || name.endsWith('.webm') ||
-                 name.endsWith('.mp3') || name.endsWith('.flac') || name.endsWith('.wav') || name.endsWith('.m4a') || name.endsWith('.aac');
-        });
+        
+        let file;
+
+        if (fileName) {
+          // 1. Try exact match
+          file = torrent.files.find(f => f.name === fileName);
+          
+          // 2. Try fuzzy match (if passed "Song Name", find "01 - Song Name.mp3")
+          if (!file) {
+            const cleanTarget = fileName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            file = torrent.files.find(f => {
+              const cleanName = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return cleanName.includes(cleanTarget);
+            });
+          }
+        }
+
+        // 3. Fallback to largest media file if no specific file found or requested
+        if (!file) {
+          file = torrent.files.find(function (file) {
+            const name = file.name.toLowerCase();
+            return name.endsWith('.mp4') || name.endsWith('.mkv') || name.endsWith('.avi') || name.endsWith('.webm') ||
+                   name.endsWith('.mp3') || name.endsWith('.flac') || name.endsWith('.wav') || name.endsWith('.m4a') || name.endsWith('.aac');
+          });
+        }
 
         if (!file) {
           const largestFile = torrent.files.reduce((a, b) => a.length > b.length ? a : b);
@@ -194,6 +213,7 @@ ipcMain.handle('start-stream', async (event, magnetURI) => {
           return;
         }
 
+        console.log(`Selected file: ${file.name}`);
         setupStream(torrent, file, resolve, reject);
       });
       

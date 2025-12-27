@@ -4,7 +4,7 @@ console.log('Preload script loaded');
 
 contextBridge.exposeInMainWorld('electron', {
   searchTorrents: (query, category) => ipcRenderer.invoke('search-torrents', query, category),
-  startStream: (magnet) => ipcRenderer.invoke('start-stream', magnet),
+  startStream: (magnet, fileName) => ipcRenderer.invoke('start-stream', magnet, fileName),
   stopStream: () => ipcRenderer.invoke('stop-stream'),
   openExternal: (url) => shell.openExternal(url),
   onTorrentProgress: (callback) => {
