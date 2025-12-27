@@ -5,12 +5,11 @@ import DetailView from './components/DetailView';
 import QualitySelector from './components/QualitySelector';
 import { tmdb } from './services/tmdb';
 import { itunes } from './services/itunes';
-import { steam } from './services/steam';
 import { getElectron } from './utils/electron';
 
 function App() {
   // UI State
-  const [category, setCategory] = useState('movie'); // 'movie', 'tv', 'music', 'game'
+  const [category, setCategory] = useState('movie'); // 'movie', 'tv', 'music'
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [streamUrl, setStreamUrl] = useState(null);
@@ -80,20 +79,6 @@ function App() {
         }
         // Map iTunes ID to standard 'id' for list rendering
         results = results.map(item => ({ ...item, id: item.collectionId || item.id }));
-        
-        // Deduplicate
-        const uniqueItems = Array.from(new Map(results.map(item => [item.id, item])).values());
-        setItems(uniqueItems);
-      } else if (category === 'game') {
-        let results = [];
-        if (searchQuery) {
-          const data = await steam.searchGames(searchQuery);
-          results = data.items || [];
-        } else {
-          results = await steam.getFeaturedGames();
-        }
-        // Map Steam ID to standard 'id'
-        results = results.map(item => ({ ...item, id: item.id }));
         
         // Deduplicate
         const uniqueItems = Array.from(new Map(results.map(item => [item.id, item])).values());

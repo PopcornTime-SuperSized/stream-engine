@@ -70,14 +70,6 @@ const Navbar = ({ onSearch, onCategoryChange, activeCategory, onSortChange, acti
               >
                 Music
               </button>
-              <button
-                onClick={() => onCategoryChange('game')}
-                className={`px-3 py-2 rounded transition ${
-                  activeCategory === 'game' ? 'text-white font-bold' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Games
-              </button>
             </div>
           </div>
 

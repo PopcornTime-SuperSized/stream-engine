@@ -3,9 +3,8 @@ import { tmdb } from '../services/tmdb';
 import { itunes } from '../services/itunes';
 
 const MediaCard = ({ item, onClick }) => {
-  // Determine if it's TMDB, iTunes, or Steam content based on properties
+  // Determine if it's TMDB or iTunes content based on properties
   const isMusic = item.wrapperType === 'collection' || item.kind === 'album' || item.artistName;
-  const isGame = item.type === 'app' || item.header_image || item.tiny_image;
 
   let title, year, imageUrl, rating, subtitle;
 
@@ -17,13 +16,6 @@ const MediaCard = ({ item, onClick }) => {
     year = date ? new Date(date).getFullYear() : '';
     imageUrl = itunes.getArtworkUrl(item.artworkUrl100, 400);
     rating = null; 
-  } else if (isGame) {
-    // Steam Data
-    title = item.name;
-    subtitle = null;
-    year = ''; // Release date not always in simple list response
-    imageUrl = item.header_image || item.tiny_image || item.large_capsule_image;
-    rating = item.metascore ? parseInt(item.metascore) / 10 : null;
   } else {
     // TMDB Data
     title = item.title || item.name;
@@ -51,8 +43,6 @@ const MediaCard = ({ item, onClick }) => {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
               {isMusic ? (
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1.5-4.5V7a1 1 0 011-1h3.5a1 1 0 011 1v2a1 1 0 01-1 1H10v3.5a1 1 0 01-1 1h-1z" clipRule="evenodd" />
-              ) : isGame ? (
-                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /> // Download Icon
               ) : (
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
               )}

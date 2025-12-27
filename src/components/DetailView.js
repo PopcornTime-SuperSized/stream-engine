@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { tmdb } from '../services/tmdb';
 import { itunes } from '../services/itunes';
-import { steam } from '../services/steam';
 import { getBannerUrls } from '../config/banners';
 import { getElectron } from '../utils/electron';
 import { getQualityColor, groupAllByQuality } from '../utils/torrent';
@@ -81,14 +80,11 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
             // Fallback: use item data if lookup fails
             setDetails(item); 
           }
-        } else if (type === 'game') {
-          const data = await steam.getGameDetails(item.id);
-          setDetails(data);
         }
       } catch (error) {
         console.error('Failed to fetch details', error);
-        // Fallback to basic item data if fetch fails (especially for Music/Games where list data is rich)
-        if (!details && (type === 'music' || type === 'game')) {
+        // Fallback to basic item data if fetch fails (especially for Music where list data is rich)
+        if (!details && type === 'music') {
           console.log('Falling back to basic item data');
           setDetails(item);
         }
@@ -99,9 +95,9 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
     fetchDetails();
   }, [item, type]);
 
-  // Fetch torrents (Movies & Games & Music Albums)
+  // Fetch torrents (Movies & Music Albums)
   useEffect(() => {
-    if ((type !== 'movie' && type !== 'game' && type !== 'music') || !details || !electron) return;
+    if ((type !== 'movie' && type !== 'music') || !details || !electron) return;
     if (movieTorrentsFetched) return; // Already fetched
     
     const fetchTorrents = async () => {
@@ -115,9 +111,6 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
         const movieYear = new Date(details.release_date).getFullYear();
         query = `${details.title} ${movieYear}`;
         category = 'Movies';
-      } else if (type === 'game') {
-        query = details.name;
-        category = 'Games';
       } else if (type === 'music') {
         query = `${details.artistName} ${details.collectionName}`;
         category = 'Audio';
@@ -160,7 +153,6 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
   }
 
   const isMusic = type === 'music';
-  const isGame = type === 'game';
   
   let backdropUrl, posterUrl, title, year, rating, runtime, genres, overview;
   
@@ -175,21 +167,6 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
     runtime = null; // Album runtime not always available easily in top-level
     genres = [details.primaryGenreName];
     overview = details.copyright; // Use copyright as overview for albums
-  } else if (isGame) {
-    // Steam Metadata
-    // Try to find a good high-res screenshot for backdrop, fallback to header image
-    if (details.screenshots && details.screenshots.length > 0) {
-      backdropUrl = details.screenshots[0].path_full;
-    } else {
-      backdropUrl = details.header_image;
-    }
-    posterUrl = details.header_image; // Steam header image is usually landscape, might need styling adjustment or use library/capsule image if available
-    title = details.name;
-    year = details.release_date?.date || '';
-    rating = details.metacritic ? details.metacritic.score / 10 : null; // 0-10 scale
-    runtime = null;
-    genres = details.genres?.map(g => g.description);
-    overview = details.short_description;
   } else {
     // TMDB Metadata
     backdropUrl = tmdb.getImageUrl(details.backdrop_path, 'original');
@@ -266,7 +243,7 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
             </div>
             <p className="text-gray-300 max-w-2xl text-lg line-clamp-3 mb-6">{overview}</p>
             
-            {(type === 'movie' || type === 'game') && (
+            {type === 'movie' && (
               <div className="mt-2">
                 {!electron ? (
                   <div className="text-yellow-500 text-sm">Desktop App required.</div>
@@ -308,18 +285,6 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                                 onClick={async () => {
                                   setExpandedQuality(null);
                                   
-                                  if (type === 'game') {
-                                    // Games: Open Magnet Link
-                                    if (electron.openExternal) {
-                                      electron.openExternal(torrent.magnet);
-                                      setStreamingStatus('Opening magnet link in default torrent client...');
-                                      setTimeout(() => setStreamingStatus(''), 3000);
-                                    } else {
-                                      setStreamingStatus('Error: Cannot open magnet link.');
-                                    }
-                                    return;
-                                  }
-
                                   // Movies: Start Stream
                                   setStreamingStatus(`Starting stream: ${torrent.title}...`);
                                   try {
@@ -350,10 +315,10 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                 ) : null}
                 {streamingStatus && (
                   <div className="mt-4 flex items-center space-x-3 bg-gray-800/80 px-4 py-3 rounded-lg">
-                    {type !== 'game' && <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-red-600"></div>}
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-red-600"></div>
                     <div>
                       <p className="text-white text-sm font-medium">{streamingStatus}</p>
-                      {type !== 'game' && <p className="text-gray-500 text-xs">Connecting to peers and buffering...</p>}
+                      <p className="text-gray-500 text-xs">Connecting to peers and buffering...</p>
                     </div>
                   </div>
                 )}
