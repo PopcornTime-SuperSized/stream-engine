@@ -80,7 +80,10 @@ function App() {
         }
         // Map iTunes ID to standard 'id' for list rendering
         results = results.map(item => ({ ...item, id: item.collectionId || item.id }));
-        setItems(results);
+        
+        // Deduplicate
+        const uniqueItems = Array.from(new Map(results.map(item => [item.id, item])).values());
+        setItems(uniqueItems);
       } else if (category === 'game') {
         let results = [];
         if (searchQuery) {
@@ -91,7 +94,10 @@ function App() {
         }
         // Map Steam ID to standard 'id'
         results = results.map(item => ({ ...item, id: item.id }));
-        setItems(results);
+        
+        // Deduplicate
+        const uniqueItems = Array.from(new Map(results.map(item => [item.id, item])).values());
+        setItems(uniqueItems);
       } else {
         // Fetch 5 pages (~100 items) in parallel
         const pages = [1, 2, 3, 4, 5];
