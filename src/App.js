@@ -14,6 +14,7 @@ function App() {
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [streamUrl, setStreamUrl] = useState(null);
+  const [streamType, setStreamType] = useState('video'); // 'audio' or 'video'
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -205,6 +206,7 @@ function App() {
     try {
       const streamInfo = await electron.startStream(torrent.magnet);
       setStreamUrl(streamInfo.url);
+      setStreamType(streamInfo.fileType || 'video');
       setStatus(`Now Playing: ${pendingMetadata?.displayTitle || pendingMetadata?.title}`);
     } catch (err) {
       console.error(err);
@@ -246,38 +248,75 @@ function App() {
                 </div>
               </div>
             </div>
-            <video 
-              key={streamUrl}
-              src={streamUrl} 
-              controls 
-              autoPlay 
-              className="w-full h-full max-h-screen"
-              onCanPlay={(e) => {
-                console.log('Video canPlay event');
-                const loader = document.getElementById('video-loading');
-                if (loader) loader.style.display = 'none';
-              }}
-              onWaiting={(e) => {
-                console.log('Video waiting event');
-                const loader = document.getElementById('video-loading');
-                if (loader) loader.style.display = 'flex';
-              }}
-              onPlaying={(e) => {
-                console.log('Video playing event');
-                const loader = document.getElementById('video-loading');
-                if (loader) loader.style.display = 'none';
-              }}
-              onError={(e) => {
-                console.error('Video error:', e.target.error);
-                const loader = document.getElementById('video-loading');
-                if (loader) loader.style.display = 'flex';
-                const statsDiv = document.getElementById('progress-stats');
-                if (statsDiv) {
-                  statsDiv.innerHTML = `<p class="text-red-400 text-sm">Error loading media: ${e.target.error?.message || 'Unknown error'}</p>`;
-                }
-              }}
-              onLoadStart={(e) => console.log('Video loadStart, src:', streamUrl)}
-            />
+
+            {streamType === 'audio' ? (
+              <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                <div className="text-center">
+                  <div className="w-48 h-48 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+                    <svg className="w-24 h-24 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-bold mb-4">{status.replace('Now Playing: ', '')}</h2>
+                  <audio
+                    key={streamUrl}
+                    src={streamUrl}
+                    controls
+                    autoPlay
+                    className="w-full max-w-md mx-auto"
+                    onCanPlay={(e) => {
+                      const loader = document.getElementById('video-loading');
+                      if (loader) loader.style.display = 'none';
+                    }}
+                    onWaiting={(e) => {
+                      const loader = document.getElementById('video-loading');
+                      if (loader) loader.style.display = 'flex';
+                    }}
+                    onPlaying={(e) => {
+                      const loader = document.getElementById('video-loading');
+                      if (loader) loader.style.display = 'none';
+                    }}
+                    onError={(e) => {
+                      const loader = document.getElementById('video-loading');
+                      if (loader) loader.style.display = 'flex';
+                      const statsDiv = document.getElementById('progress-stats');
+                      if (statsDiv) {
+                        statsDiv.innerHTML = `<p class="text-red-400 text-sm">Error loading media: ${e.target.error?.message || 'Unknown error'}</p>`;
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <video 
+                key={streamUrl}
+                src={streamUrl} 
+                controls 
+                autoPlay 
+                className="w-full h-full max-h-screen"
+                onCanPlay={(e) => {
+                  const loader = document.getElementById('video-loading');
+                  if (loader) loader.style.display = 'none';
+                }}
+                onWaiting={(e) => {
+                  const loader = document.getElementById('video-loading');
+                  if (loader) loader.style.display = 'flex';
+                }}
+                onPlaying={(e) => {
+                  const loader = document.getElementById('video-loading');
+                  if (loader) loader.style.display = 'none';
+                }}
+                onError={(e) => {
+                  const loader = document.getElementById('video-loading');
+                  if (loader) loader.style.display = 'flex';
+                  const statsDiv = document.getElementById('progress-stats');
+                  if (statsDiv) {
+                    statsDiv.innerHTML = `<p class="text-red-400 text-sm">Error loading media: ${e.target.error?.message || 'Unknown error'}</p>`;
+                  }
+                }}
+              />
+            )}
+
             {/* Close button - small X, visible on hover */}
             <button 
               onClick={() => {
@@ -319,8 +358,9 @@ function App() {
             setSelectedItem(null);
           }}
           onPlay={handlePlay}
-          onStreamStart={(url, title) => {
+          onStreamStart={(url, title, type) => {
             setStreamUrl(url);
+            setStreamType(type || 'video');
             setStatus(`Now Playing: ${title}`);
           }}
         />

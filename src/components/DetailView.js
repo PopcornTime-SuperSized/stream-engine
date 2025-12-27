@@ -325,7 +325,7 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                                   try {
                                     const streamInfo = await electron.startStream(torrent.magnet);
                                     if (onStreamStart) {
-                                      onStreamStart(streamInfo.url, details.title);
+                                      onStreamStart(streamInfo.url, details.title, streamInfo.fileType);
                                       setStreamingStatus(''); // Clear status when video player opens
                                     }
                                   } catch (err) {
@@ -473,7 +473,7 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                     const label = type === 'music' 
                       ? `${details.artistName} - ${episode.name}`
                       : `${details.name} S${selectedSeason}E${episode.episode_number}`;
-                    onStreamStart(streamInfo.url, label);
+                    onStreamStart(streamInfo.url, label, streamInfo.fileType);
                     setStreamingStatus(''); // Clear status when video player opens
                   }
                 } catch (err) {

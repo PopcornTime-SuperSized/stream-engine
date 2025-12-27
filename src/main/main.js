@@ -319,7 +319,8 @@ function setupStream(torrent, file, resolve, reject) {
       resolve({
         name: file.name,
         url: streamUrl,
-        infoHash: torrent.infoHash
+        infoHash: torrent.infoHash,
+        fileType: file.name.match(/\.(mp3|flac|wav|m4a|aac|ogg|wma)$/i) ? 'audio' : 'video'
       });
       
       // Continue sending progress for 10 more seconds after stream is ready
