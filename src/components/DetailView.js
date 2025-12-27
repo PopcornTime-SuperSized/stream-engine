@@ -401,9 +401,9 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
 
           <div className="space-y-4">
             {/* Availability Warning for Music */}
-            {type === 'music' && !loadingMovieTorrents && (!movieTorrents || movieTorrents.length === 0) && (
+            {type === 'music' && !loadingMovieTorrents && (!movieTorrents || !movieTorrents.some(t => (t.seeds || 0) > 0)) && (
               <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded mb-4">
-                No torrent sources found for this album. Tracks are unavailable.
+                No playable torrent sources found for this album (0 seeds).
               </div>
             )}
 
@@ -415,7 +415,8 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
               
               // Check availability for Music
               const isMusic = type === 'music';
-              const albumHasSources = movieTorrents && movieTorrents.length > 0;
+              // Consider available only if we have torrents with at least 1 seed
+              const albumHasSources = movieTorrents && movieTorrents.some(t => (t.seeds || 0) > 0);
               const isUnavailable = isMusic && !loadingMovieTorrents && !albumHasSources;
 
               const handleEpisodeClick = async () => {
