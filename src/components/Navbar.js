@@ -14,7 +14,8 @@ const Navbar = ({ onSearch, onCategoryChange, activeCategory, onSortChange, acti
     { label: 'Popularity', value: 'popularity' },
     { label: 'A-Z', value: 'alphabetical' },
     { label: 'Rating', value: 'rating' },
-    { label: 'Newest', value: 'newest' }
+    { label: 'Newest', value: 'newest' },
+    { label: 'Favorites', value: 'favorites' }
   ];
 
   return (

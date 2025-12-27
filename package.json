@@ -1,6 +1,6 @@
 {
   "name": "stream-engine",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "main": "src/main/main.js",
   "homepage": "./",
   "author": "StreamEngine Team",

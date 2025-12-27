@@ -5,6 +5,7 @@ import DetailView from './components/DetailView';
 import QualitySelector from './components/QualitySelector';
 import { tmdb } from './services/tmdb';
 import { itunes } from './services/itunes';
+import { favorites } from './services/favorites';
 import { getElectron } from './utils/electron';
 
 function App() {
@@ -69,6 +70,14 @@ function App() {
   const loadContent = useCallback(async () => {
     setLoading(true);
     try {
+      // Handle Favorites Filter
+      if (sortBy === 'favorites' && !searchQuery) {
+        const favs = favorites.getFavorites(category);
+        setItems(favs);
+        setLoading(false);
+        return;
+      }
+
       if (category === 'music') {
         let results = [];
         if (searchQuery) {
@@ -347,6 +356,10 @@ function App() {
               electron.stopStream();
             }
             setSelectedItem(null);
+            // Refresh grid if we are viewing favorites (in case item was removed)
+            if (sortBy === 'favorites') {
+              loadContent();
+            }
           }}
           onPlay={handlePlay}
           onStreamStart={(url, title, type) => {
