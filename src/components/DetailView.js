@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { tmdb } from '../services/tmdb';
 import { itunes } from '../services/itunes';
 import { favorites } from '../services/favorites';
+import { history } from '../services/history';
 import { getBannerUrls } from '../config/banners';
 import { getElectron } from '../utils/electron';
 import { getQualityColor, groupAllByQuality } from '../utils/torrent';
@@ -9,6 +10,8 @@ import { getQualityColor, groupAllByQuality } from '../utils/torrent';
 const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
   const [details, setDetails] = useState(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isWatched, setIsWatched] = useState(false);
+  const [historyUpdate, setHistoryUpdate] = useState(0);
   const [seasons, setSeasons] = useState([]);
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [episodes, setEpisodes] = useState([]);
@@ -33,8 +36,9 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
   useEffect(() => {
     if (item && type) {
       setIsFavorite(favorites.isFavorite(item.id, type));
+      setIsWatched(history.isWatched(type, item.id));
     }
-  }, [item, type]);
+  }, [item, type, historyUpdate]);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -257,6 +261,23 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                 </svg>
               </button>
+              
+              <button
+                onClick={() => {
+                  const newStatus = history.toggle(type, item.id);
+                  setIsWatched(newStatus);
+                  setHistoryUpdate(prev => prev + 1); // Trigger re-render for children that rely on history
+                }}
+                className={`p-2 rounded-full transition-colors group relative ${isWatched ? 'text-green-500 bg-green-500/10' : 'text-gray-400 hover:text-white bg-gray-800'}`}
+                title={type === 'music' ? (isWatched ? 'Heard!' : 'Mark as Heard') : (isWatched ? 'Watched!' : 'Mark as Watched')}
+              >
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="absolute left-full ml-2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                  {type === 'music' ? 'Heard!' : 'Watched!'}
+                </span>
+              </button>
             </div>
             <div className="flex items-center space-x-4 mb-4 text-sm">
               {rating && <span className="text-green-400">{rating.toFixed(1)} Match</span>}
@@ -356,19 +377,40 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
           {/* Season Selector (TV Only) */}
           {type === 'tv' && (
             <div className="flex items-center space-x-4 mb-6 overflow-x-auto pb-4">
-              {seasons.map(season => (
-                <button
-                  key={season.id}
-                  onClick={() => setSelectedSeason(season.season_number)}
-                  className={`px-4 py-2 rounded whitespace-nowrap ${
-                    selectedSeason === season.season_number 
-                      ? 'bg-red-600 text-white' 
-                      : 'bg-gray-800 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  {season.name}
-                </button>
-              ))}
+              {seasons.map(season => {
+                const isSeasonWatched = history.isWatched('tv', item.id, season.season_number);
+                return (
+                  <div key={season.id} className="relative group/season flex-shrink-0">
+                    <button
+                      onClick={() => setSelectedSeason(season.season_number)}
+                      className={`px-4 py-2 rounded whitespace-nowrap pr-8 transition-colors ${
+                        selectedSeason === season.season_number 
+                          ? 'bg-red-600 text-white' 
+                          : 'bg-gray-800 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {season.name}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        history.toggle('tv', item.id, season.season_number);
+                        setHistoryUpdate(prev => prev + 1);
+                      }}
+                      className={`absolute right-1 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-colors ${
+                        isSeasonWatched 
+                          ? 'text-green-400 hover:text-green-300' 
+                          : 'text-gray-600 hover:text-gray-400'
+                      }`}
+                      title={isSeasonWatched ? "Season Watched!" : "Mark Season as Watched"}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -405,6 +447,11 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
               // Consider available only if we have torrents with at least 1 seed
               const albumHasSources = movieTorrents && movieTorrents.some(t => (t.seeds || 0) > 0);
               const isUnavailable = isMusic && !loadingMovieTorrents && !albumHasSources;
+
+              // Check watched status
+              const isEpWatched = type === 'music' 
+                ? history.isWatched('music', item.id, null, episode.id)
+                : history.isWatched('tv', item.id, selectedSeason, episode.episode_number);
 
               const handleEpisodeClick = async () => {
                 if (isUnavailable) return;
@@ -501,6 +548,26 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                     <div className="text-gray-500 text-sm ml-4 flex-shrink-0">
                       {episode.runtime ? `${episode.runtime}m` : ''}
                     </div>
+
+                    <div className="ml-4 flex-shrink-0 z-10">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          history.toggle(type === 'music' ? 'music' : 'tv', item.id, type === 'music' ? null : selectedSeason, type === 'music' ? episode.id : episode.episode_number);
+                          setHistoryUpdate(prev => prev + 1);
+                        }}
+                        className={`p-1 rounded-full transition-colors group/check relative ${isEpWatched ? 'text-green-500' : 'text-gray-600 hover:text-green-500'}`}
+                        title={type === 'music' ? (isEpWatched ? 'Heard!' : 'Mark as Heard') : (isEpWatched ? 'Watched!' : 'Mark as Watched')}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="absolute right-full mr-2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/check:opacity-100 transition-opacity whitespace-nowrap pointer-events-none top-1/2 transform -translate-y-1/2 z-50">
+                          {type === 'music' ? (isEpWatched ? 'Heard!' : 'Mark as Heard') : (isEpWatched ? 'Watched!' : 'Mark as Watched')}
+                        </span>
+                      </button>
+                    </div>
+
                     <div className="ml-4 flex-shrink-0">
                       <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
