@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
 const TorrentSearchApi = require('torrent-search-api');
@@ -120,6 +120,15 @@ function createWindow() {
   // Log any renderer process crashes
   mainWindow.webContents.on('crashed', (e) => console.error('Renderer process crashed!', e));
   mainWindow.webContents.on('did-fail-load', (e, code, desc) => console.error('Failed to load:', desc));
+
+  // Handle external links (banners, etc) by opening in default browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // Only open http/https links externally
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' }; // Prevent internal window creation
+  });
 
 
   const startUrl = isDev
