@@ -269,9 +269,11 @@ function App() {
               }}
               onError={(e) => {
                 console.error('Video error:', e.target.error);
+                const loader = document.getElementById('video-loading');
+                if (loader) loader.style.display = 'flex';
                 const statsDiv = document.getElementById('progress-stats');
                 if (statsDiv) {
-                  statsDiv.innerHTML = `<p class="text-red-400 text-sm">Error loading video: ${e.target.error?.message || 'Unknown error'}</p>`;
+                  statsDiv.innerHTML = `<p class="text-red-400 text-sm">Error loading media: ${e.target.error?.message || 'Unknown error'}</p>`;
                 }
               }}
               onLoadStart={(e) => console.log('Video loadStart, src:', streamUrl)}

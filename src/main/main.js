@@ -29,17 +29,18 @@ appServer.get('/stream', (req, res) => {
   }
 
   const range = req.headers.range;
+  const isAudio = activeFile.name.match(/\.(mp3|flac|wav|m4a|aac)$/i);
   
   // If we just want to probe or simple stream
-  res.setHeader('Content-Type', 'video/mp4');
+  res.setHeader('Content-Type', isAudio ? 'audio/mp4' : 'video/mp4');
 
   // FFmpeg Transcoding Stream
   const stream = activeFile.createReadStream();
   let command = ffmpeg(stream);
 
-  const isAudio = activeFile.name.match(/\.(mp3|flac|wav|m4a|aac)$/i);
-
-  if (!isAudio) {
+  if (isAudio) {
+    command = command.noVideo(); // Strip cover art/video streams from audio files
+  } else {
     command = command.videoCodec('copy');
   }
 
