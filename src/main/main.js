@@ -179,7 +179,15 @@ ipcMain.handle('start-stream', async (event, magnetURI, fileName = null) => {
     try {
       const torrent = client.add(magnetURI);
       
+      // Timeout if metadata doesn't load within 20 seconds
+      const metadataTimeout = setTimeout(() => {
+        // Destroy torrent if it's stuck fetching metadata
+        torrent.destroy(); 
+        reject(new Error('Timeout fetching torrent metadata (no peers found)'));
+      }, 20000);
+
       torrent.on('ready', () => {
+        clearTimeout(metadataTimeout);
         console.log('Torrent added, looking for video file...');
         
         let file;

@@ -276,7 +276,9 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                     <span>Searching for sources...</span>
                   </div>
                 ) : movieTorrents && movieTorrents.length === 0 ? (
-                  <div className="text-gray-500">No sources found.</div>
+                  <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded inline-block">
+                    No torrent sources found.
+                  </div>
                 ) : movieTorrents ? (
                   <div className="flex flex-wrap gap-2">
                     {groupAllByQuality(movieTorrents).map((group, idx) => (
@@ -398,13 +400,27 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
           )}
 
           <div className="space-y-4">
+            {/* Availability Warning for Music */}
+            {type === 'music' && !loadingMovieTorrents && (!movieTorrents || movieTorrents.length === 0) && (
+              <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded mb-4">
+                No torrent sources found for this album. Tracks are unavailable.
+              </div>
+            )}
+
             {(type === 'music' ? episodes : [...episodes].reverse()).map(episode => {
               const epKey = type === 'music' ? `${episode.id}` : `${selectedSeason}-${episode.episode_number}`;
               const isExpanded = expandedEpisode === epKey;
               const torrents = episodeTorrents[epKey];
               const isLoadingThis = loadingTorrents === epKey;
+              
+              // Check availability for Music
+              const isMusic = type === 'music';
+              const albumHasSources = movieTorrents && movieTorrents.length > 0;
+              const isUnavailable = isMusic && !loadingMovieTorrents && !albumHasSources;
 
               const handleEpisodeClick = async () => {
+                if (isUnavailable) return;
+                
                 if (isExpanded) {
                   setExpandedEpisode(null);
                   return;
@@ -466,10 +482,10 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
               };
 
               return (
-                <div key={episode.id} className="bg-gray-800 rounded border border-transparent hover:border-gray-600 transition-all overflow-visible">
+                <div key={episode.id} className={`bg-gray-800 rounded border border-transparent transition-all overflow-visible ${isUnavailable ? 'opacity-50' : 'hover:border-gray-600'}`}>
                   {/* Episode/Track Row */}
                   <div 
-                    className="p-4 flex items-center cursor-pointer hover:bg-gray-700 transition-all"
+                    className={`p-4 flex items-center transition-all ${isUnavailable ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-gray-700'}`}
                     onClick={handleEpisodeClick}
                   >
                     <div className="w-8 text-gray-500">{episode.episode_number}</div>

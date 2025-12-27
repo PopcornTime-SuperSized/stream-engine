@@ -55,11 +55,11 @@ const QUALITY_PRIORITY = {
 export const groupAllByQuality = (torrents) => {
   if (!torrents || !Array.isArray(torrents)) return [];
   
-  // Filter out dead torrents (0 seeds)
-  const activeTorrents = torrents.filter(t => (t.seeds || 0) > 0);
+  // Note: We don't filter 0 seeds anymore because public tracker stats are often outdated.
+  // We'll let the user decide to try them.
   
   const groups = {};
-  activeTorrents.forEach(t => {
+  torrents.forEach(t => {
     const q = getQuality(t.title);
     if (!groups[q]) groups[q] = [];
     groups[q].push(t);
