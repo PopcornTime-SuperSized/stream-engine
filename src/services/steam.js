@@ -37,20 +37,17 @@ export const steam = {
     });
     
     // Featured categories returns multiple lists. 
-    // We'll grab 'Top Sellers' or 'New Releases' from the first supported key.
-    // Usually response.data.top_sellers.items or similar.
-    // Let's fallback to search empty string or specific known lists if this is complex.
-    // Actually, storesearch with empty term might not work.
+    // We'll aggregate them to get a fuller grid.
     
-    // Let's use the top_sellers if available, or just a hardcoded list of popular tags if needed.
-    // Better yet: search for "popular" or empty?
-    // Let's try searching for a common tag or just return top sellers from the featured endpoint.
-    
-    const topSellers = response.data.top_sellers?.items || 
-                       response.data.specials?.items || 
-                       response.data.new_releases?.items || [];
-                       
-    return topSellers;
+    const topSellers = response.data.top_sellers?.items || [];
+    const newReleases = response.data.new_releases?.items || [];
+    const specials = response.data.specials?.items || [];
+    const comingSoon = response.data.coming_soon?.items || [];
+
+    // Combine all lists
+    const allGames = [...topSellers, ...newReleases, ...specials, ...comingSoon];
+
+    return allGames;
   },
 
   // Get Game Details
