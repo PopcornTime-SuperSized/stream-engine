@@ -150,9 +150,9 @@ We evaluated **PWA (Progressive Web Apps)** as an alternative but rejected it fo
 *   **Electron IPC Helper** (`/src/utils/electron.js`):
     *   Centralized `getElectron()` function used by App.js and DetailView.js.
     *   Dual fallback: tries `window.electron` (preload), falls back to `window.require`.
-    *   Exposes `searchTorrents`, `startStream`, `stopStream` methods.
+    *   Exposes `searchTorrents`, `startStream`, `stopStream`, `openExternal` methods.
 *   **Torrent Utilities** (`/src/utils/torrent.js`):
-    *   `getQuality(title)` - Detects resolution from torrent title (4K, 1080p, 720p, etc.).
+    *   `getQuality(title)` - Detects resolution from torrent title (4K, 1080p, 720p, etc.) AND Audio quality (FLAC, MP3, 320kbps).
     *   `getQualityColor(quality)` - Returns Tailwind color classes for quality badges.
     *   `groupAllByQuality(torrents)` - Groups torrents by quality tier, sorted by seeds.
 *   **Removed Duplication**:
@@ -160,6 +160,19 @@ We evaluated **PWA (Progressive Web Apps)** as an alternative but rejected it fo
     *   Removed unused `torrentProgress` state from App.js (using DOM manipulation).
     *   Consolidated IPC helper definitions into single source of truth.
 *   **Branding Update**: Renamed app to **PopcornTime<sup>X</sup>** across Navbar and DetailView.
+
+### 19. Multi-Category Support (v0.4.0)
+*   **Music Category**:
+    *   **Metadata Source**: **iTunes Search API** (via `src/services/itunes.js`).
+    *   **Torrent Search**: Searches 'Audio' category for Artist + Track Name.
+    *   **Streaming**: Supports MP3, FLAC, WAV, AAC, M4A via FFmpeg transcoding (audio-only mode).
+    *   **UI**: Square artwork grids, Tracklist view in Detail Modal.
+*   **Games Category**:
+    *   **Metadata Source**: **Steam Store API** (via `src/services/steam.js`).
+    *   **Torrent Search**: Searches 'Games' category for Game Title.
+    *   **Download Only**: "Play" button replaced with "Download" action.
+    *   **Magnet Handling**: Opens magnet links in system default torrent client (e.g., qBittorrent, Transmission) using `shell.openExternal`.
+    *   **UI**: Steam Header images for posters, Game description and metadata.
 
 ## How to Run
 ```bash

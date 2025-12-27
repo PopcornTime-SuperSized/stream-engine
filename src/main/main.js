@@ -34,12 +34,16 @@ appServer.get('/stream', (req, res) => {
   res.setHeader('Content-Type', 'video/mp4');
 
   // FFmpeg Transcoding Stream
-  // We copy video (fast) and transcode audio to AAC (compatible)
-  // We use mp4 container with fragmentation for streaming
   const stream = activeFile.createReadStream();
-  
-  const command = ffmpeg(stream)
-    .videoCodec('copy')
+  let command = ffmpeg(stream);
+
+  const isAudio = activeFile.name.match(/\.(mp3|flac|wav|m4a|aac)$/i);
+
+  if (!isAudio) {
+    command = command.videoCodec('copy');
+  }
+
+  command = command
     .audioCodec('aac')
     .audioChannels(2) // Downmix to stereo
     .audioFilters([
@@ -176,14 +180,16 @@ ipcMain.handle('start-stream', async (event, magnetURI) => {
       torrent.on('ready', () => {
         console.log('Torrent added, looking for video file...');
       
-        // Find the largest file, usually the video
+        // Find the largest file, usually the video or main audio file
         const file = torrent.files.find(function (file) {
-          return file.name.endsWith('.mp4') || file.name.endsWith('.mkv') || file.name.endsWith('.avi') || file.name.endsWith('.webm');
+          const name = file.name.toLowerCase();
+          return name.endsWith('.mp4') || name.endsWith('.mkv') || name.endsWith('.avi') || name.endsWith('.webm') ||
+                 name.endsWith('.mp3') || name.endsWith('.flac') || name.endsWith('.wav') || name.endsWith('.m4a') || name.endsWith('.aac');
         });
 
         if (!file) {
           const largestFile = torrent.files.reduce((a, b) => a.length > b.length ? a : b);
-          console.log(`No standard video extension found. Using largest file: ${largestFile.name}`);
+          console.log(`No standard media extension found. Using largest file: ${largestFile.name}`);
           setupStream(torrent, largestFile, resolve, reject);
           return;
         }

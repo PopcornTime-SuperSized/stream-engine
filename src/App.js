@@ -4,11 +4,13 @@ import MediaGrid from './components/MediaGrid';
 import DetailView from './components/DetailView';
 import QualitySelector from './components/QualitySelector';
 import { tmdb } from './services/tmdb';
+import { itunes } from './services/itunes';
+import { steam } from './services/steam';
 import { getElectron } from './utils/electron';
 
 function App() {
   // UI State
-  const [category, setCategory] = useState('movie'); // 'movie' or 'tv'
+  const [category, setCategory] = useState('movie'); // 'movie', 'tv', 'music', 'game'
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [streamUrl, setStreamUrl] = useState(null);
@@ -67,35 +69,59 @@ function App() {
   const loadContent = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch 5 pages (~100 items) in parallel
-      const pages = [1, 2, 3, 4, 5];
-      let promises;
-
-      if (searchQuery) {
-        promises = pages.map(page => 
-          category === 'movie' 
-            ? tmdb.searchMovies(searchQuery, page)
-            : tmdb.searchTV(searchQuery, page)
-        );
+      if (category === 'music') {
+        let results = [];
+        if (searchQuery) {
+          const data = await itunes.searchAlbums(searchQuery);
+          results = data.results || [];
+        } else {
+          results = await itunes.getTopAlbums();
+        }
+        // Map iTunes ID to standard 'id' for list rendering
+        results = results.map(item => ({ ...item, id: item.collectionId || item.id }));
+        setItems(results);
+      } else if (category === 'game') {
+        let results = [];
+        if (searchQuery) {
+          const data = await steam.searchGames(searchQuery);
+          results = data.items || [];
+        } else {
+          results = await steam.getFeaturedGames();
+        }
+        // Map Steam ID to standard 'id'
+        results = results.map(item => ({ ...item, id: item.id }));
+        setItems(results);
       } else {
-        const apiSort = getSortParam(sortBy, category);
-        promises = pages.map(page => 
-          category === 'movie'
-            ? tmdb.discoverMovies(apiSort, page)
-            : tmdb.discoverTV(apiSort, page)
-        );
+        // Fetch 5 pages (~100 items) in parallel
+        const pages = [1, 2, 3, 4, 5];
+        let promises;
+
+        if (searchQuery) {
+          promises = pages.map(page => 
+            category === 'movie' 
+              ? tmdb.searchMovies(searchQuery, page)
+              : tmdb.searchTV(searchQuery, page)
+          );
+        } else {
+          const apiSort = getSortParam(sortBy, category);
+          promises = pages.map(page => 
+            category === 'movie'
+              ? tmdb.discoverMovies(apiSort, page)
+              : tmdb.discoverTV(apiSort, page)
+          );
+        }
+
+        const results = await Promise.all(promises);
+        
+        // Combine all pages and remove duplicates by ID
+        const allItems = results.flatMap(data => data.results || []);
+        const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
+
+        setItems(uniqueItems);
       }
-
-      const results = await Promise.all(promises);
-      
-      // Combine all pages and remove duplicates by ID
-      const allItems = results.flatMap(data => data.results || []);
-      const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
-
-      setItems(uniqueItems);
     } catch (error) {
       console.error('Failed to load content:', error);
-      setStatus('Failed to load content from TMDB');
+      setStatus('Failed to load content');
     }
     setLoading(false);
   }, [category, searchQuery, sortBy]);

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { tmdb } from '../services/tmdb';
+import { itunes } from '../services/itunes';
+import { steam } from '../services/steam';
 import { getBannerUrls } from '../config/banners';
 import { getElectron } from '../utils/electron';
 import { getQualityColor, groupAllByQuality } from '../utils/torrent';
@@ -11,12 +13,12 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
   const [episodes, setEpisodes] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Inline quality selection state (TV episodes)
+  // Inline quality selection state (TV episodes & Music tracks)
   const [expandedEpisode, setExpandedEpisode] = useState(null);
   const [episodeTorrents, setEpisodeTorrents] = useState({});
   const [loadingTorrents, setLoadingTorrents] = useState(null);
   const [streamingStatus, setStreamingStatus] = useState('');
-  const [expandedTvQuality, setExpandedTvQuality] = useState(null); // For TV dropdown
+  const [expandedTvQuality, setExpandedTvQuality] = useState(null); // For TV/Music dropdown
   
   // Movie quality selection state
   const [movieTorrents, setMovieTorrents] = useState(null);
@@ -34,7 +36,7 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
         if (type === 'movie') {
           const data = await tmdb.getMovieDetails(item.id);
           setDetails(data);
-        } else {
+        } else if (type === 'tv') {
           const data = await tmdb.getTVDetails(item.id);
           setDetails(data);
           
@@ -54,6 +56,25 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
             const mostRecent = regularSeasons.length > 0 ? regularSeasons[0] : sortedSeasons[0];
             setSelectedSeason(mostRecent?.season_number || 1);
           }
+        } else if (type === 'music') {
+          const data = await itunes.getAlbumDetails(item.collectionId);
+          const results = data.results || [];
+          if (results.length > 0) {
+            setDetails(results[0]); // Collection info
+            // Map tracks to episode-like structure
+            const tracks = results.slice(1).map(track => ({
+              id: track.trackId,
+              episode_number: track.trackNumber,
+              name: track.trackName,
+              overview: `${track.artistName} • ${((track.trackTimeMillis || 0) / 60000).toFixed(1)} min`,
+              runtime: Math.round((track.trackTimeMillis || 0) / 60000),
+              still_path: null // No per-track image usually
+            }));
+            setEpisodes(tracks);
+          }
+        } else if (type === 'game') {
+          const data = await steam.getGameDetails(item.id);
+          setDetails(data);
         }
       } catch (error) {
         console.error('Failed to fetch details', error);
@@ -62,22 +83,31 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
     };
 
     fetchDetails();
-  }, [item.id, type]);
+  }, [item, type]);
 
-  // Fetch movie torrents (simplified - same approach as TV episodes)
+  // Fetch torrents (Movies & Games)
   useEffect(() => {
-    if (type !== 'movie' || !details || !electron) return;
+    if ((type !== 'movie' && type !== 'game') || !details || !electron) return;
     if (movieTorrentsFetched) return; // Already fetched
     
     const fetchTorrents = async () => {
       setMovieTorrentsFetched(true);
       setLoadingMovieTorrents(true);
       
-      const movieYear = new Date(details.release_date).getFullYear();
-      const query = `${details.title} ${movieYear}`;
+      let query;
+      let category = 'All';
+
+      if (type === 'movie') {
+        const movieYear = new Date(details.release_date).getFullYear();
+        query = `${details.title} ${movieYear}`;
+        category = 'Movies';
+      } else if (type === 'game') {
+        query = details.name;
+        category = 'Games';
+      }
       
       try {
-        const results = await electron.searchTorrents(query);
+        const results = await electron.searchTorrents(query, category);
         setMovieTorrents(results || []);
       } catch (err) {
         console.error('Torrent search failed:', err);
@@ -112,9 +142,48 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
     );
   }
 
-  const backdropUrl = tmdb.getImageUrl(details.backdrop_path, 'original');
-  const posterUrl = tmdb.getImageUrl(details.poster_path);
-  const year = new Date(details.release_date || details.first_air_date).getFullYear();
+  const isMusic = type === 'music';
+  const isGame = type === 'game';
+  
+  let backdropUrl, posterUrl, title, year, rating, runtime, genres, overview;
+  
+  if (isMusic) {
+    // iTunes Metadata
+    const artwork = details.artworkUrl100?.replace('100x100', '1000x1000');
+    backdropUrl = artwork; // Use high-res artwork as backdrop
+    posterUrl = artwork;
+    title = details.collectionName;
+    year = new Date(details.releaseDate).getFullYear();
+    rating = null; // No rating
+    runtime = null; // Album runtime not always available easily in top-level
+    genres = [details.primaryGenreName];
+    overview = details.copyright; // Use copyright as overview for albums
+  } else if (isGame) {
+    // Steam Metadata
+    // Try to find a good high-res screenshot for backdrop, fallback to header image
+    if (details.screenshots && details.screenshots.length > 0) {
+      backdropUrl = details.screenshots[0].path_full;
+    } else {
+      backdropUrl = details.header_image;
+    }
+    posterUrl = details.header_image; // Steam header image is usually landscape, might need styling adjustment or use library/capsule image if available
+    title = details.name;
+    year = details.release_date?.date || '';
+    rating = details.metacritic ? details.metacritic.score / 10 : null; // 0-10 scale
+    runtime = null;
+    genres = details.genres?.map(g => g.description);
+    overview = details.short_description;
+  } else {
+    // TMDB Metadata
+    backdropUrl = tmdb.getImageUrl(details.backdrop_path, 'original');
+    posterUrl = tmdb.getImageUrl(details.poster_path);
+    title = details.title || details.name;
+    year = new Date(details.release_date || details.first_air_date).getFullYear();
+    rating = details.vote_average;
+    runtime = details.runtime; // Movies have runtime
+    genres = details.genres?.map(g => g.name);
+    overview = details.overview;
+  }
 
   return (
     <div className="fixed inset-0 z-[200] bg-gray-900 overflow-y-auto">
@@ -156,11 +225,11 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
 
       {/* Hero Section */}
       <div className="relative h-[50vh]">
-        <div className="absolute inset-0">
+        <div className="absolute inset-0 overflow-hidden">
           <img 
             src={backdropUrl} 
             alt="backdrop" 
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover ${isMusic ? 'blur-xl scale-110 opacity-50' : ''}`} 
           />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent" />
         </div>
@@ -172,25 +241,25 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
             className="w-48 rounded-lg shadow-2xl hidden md:block mr-8"
           />
           <div className="flex-1 text-white">
-            <h1 className="text-4xl font-bold mb-2">{details.title || details.name} <span className="text-gray-400 font-normal">({year})</span></h1>
+            <h1 className="text-4xl font-bold mb-2">{title} <span className="text-gray-400 font-normal">({year})</span></h1>
             <div className="flex items-center space-x-4 mb-4 text-sm">
-              <span className="text-green-400">{details.vote_average?.toFixed(1)} Match</span>
-              <span>{details.runtime ? `${details.runtime}m` : ''}</span>
-              <span>{details.genres?.map(g => g.name).join(', ')}</span>
+              {rating && <span className="text-green-400">{rating.toFixed(1)} Match</span>}
+              {runtime && <span>{runtime}m</span>}
+              <span>{genres?.join(', ')}</span>
             </div>
-            <p className="text-gray-300 max-w-2xl text-lg line-clamp-3 mb-6">{details.overview}</p>
+            <p className="text-gray-300 max-w-2xl text-lg line-clamp-3 mb-6">{overview}</p>
             
-            {type === 'movie' && (
+            {(type === 'movie' || type === 'game') && (
               <div className="mt-2">
                 {!electron ? (
-                  <div className="text-yellow-500 text-sm">Desktop App required for streaming.</div>
+                  <div className="text-yellow-500 text-sm">Desktop App required.</div>
                 ) : loadingMovieTorrents ? (
                   <div className="flex items-center space-x-2 text-gray-400">
                     <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-red-600"></div>
                     <span>Searching for sources...</span>
                   </div>
                 ) : movieTorrents && movieTorrents.length === 0 ? (
-                  <div className="text-gray-500">No sources found for this movie.</div>
+                  <div className="text-gray-500">No sources found.</div>
                 ) : movieTorrents ? (
                   <div className="flex flex-wrap gap-2">
                     {groupAllByQuality(movieTorrents).map((group, idx) => (
@@ -219,6 +288,20 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                                 key={tidx}
                                 onClick={async () => {
                                   setExpandedQuality(null);
+                                  
+                                  if (type === 'game') {
+                                    // Games: Open Magnet Link
+                                    if (electron.openExternal) {
+                                      electron.openExternal(torrent.magnet);
+                                      setStreamingStatus('Opening magnet link in default torrent client...');
+                                      setTimeout(() => setStreamingStatus(''), 3000);
+                                    } else {
+                                      setStreamingStatus('Error: Cannot open magnet link.');
+                                    }
+                                    return;
+                                  }
+
+                                  // Movies: Start Stream
                                   setStreamingStatus(`Starting stream: ${torrent.title}...`);
                                   try {
                                     const streamInfo = await electron.startStream(torrent.magnet);
@@ -246,12 +329,12 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                     ))}
                   </div>
                 ) : null}
-                {streamingStatus && type === 'movie' && (
+                {streamingStatus && (
                   <div className="mt-4 flex items-center space-x-3 bg-gray-800/80 px-4 py-3 rounded-lg">
-                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-red-600"></div>
+                    {type !== 'game' && <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-red-600"></div>}
                     <div>
                       <p className="text-white text-sm font-medium">{streamingStatus}</p>
-                      <p className="text-gray-500 text-xs">Connecting to peers and buffering...</p>
+                      {type !== 'game' && <p className="text-gray-500 text-xs">Connecting to peers and buffering...</p>}
                     </div>
                   </div>
                 )}
@@ -261,24 +344,27 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
         </div>
       </div>
 
-      {/* Episodes Section (TV Only) */}
-      {type === 'tv' && (
+      {/* Episodes/Tracks Section */}
+      {(type === 'tv' || type === 'music') && (
         <div className="container mx-auto p-8">
-          <div className="flex items-center space-x-4 mb-6 overflow-x-auto pb-4">
-            {seasons.map(season => (
-              <button
-                key={season.id}
-                onClick={() => setSelectedSeason(season.season_number)}
-                className={`px-4 py-2 rounded whitespace-nowrap ${
-                  selectedSeason === season.season_number 
-                    ? 'bg-red-600 text-white' 
-                    : 'bg-gray-800 text-gray-400 hover:text-white'
-                }`}
-              >
-                {season.name}
-              </button>
-            ))}
-          </div>
+          {/* Season Selector (TV Only) */}
+          {type === 'tv' && (
+            <div className="flex items-center space-x-4 mb-6 overflow-x-auto pb-4">
+              {seasons.map(season => (
+                <button
+                  key={season.id}
+                  onClick={() => setSelectedSeason(season.season_number)}
+                  className={`px-4 py-2 rounded whitespace-nowrap ${
+                    selectedSeason === season.season_number 
+                      ? 'bg-red-600 text-white' 
+                      : 'bg-gray-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {season.name}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Status Message */}
           {streamingStatus && (
@@ -295,8 +381,8 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
           )}
 
           <div className="space-y-4">
-            {[...episodes].reverse().map(episode => {
-              const epKey = `${selectedSeason}-${episode.episode_number}`;
+            {(type === 'music' ? episodes : [...episodes].reverse()).map(episode => {
+              const epKey = type === 'music' ? `${episode.id}` : `${selectedSeason}-${episode.episode_number}`;
               const isExpanded = expandedEpisode === epKey;
               const torrents = episodeTorrents[epKey];
               const isLoadingThis = loadingTorrents === epKey;
@@ -319,10 +405,19 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                 
                 setLoadingTorrents(epKey);
                 try {
-                  const s = selectedSeason.toString().padStart(2, '0');
-                  const e = episode.episode_number.toString().padStart(2, '0');
-                  const query = `${details.name} S${s}E${e}`;
-                  const results = await electron.searchTorrents(query);
+                  let query, category;
+                  if (type === 'music') {
+                    // Search for Artist + Track Name
+                    query = `${details.artistName} ${episode.name}`;
+                    category = 'Audio';
+                  } else {
+                    const s = selectedSeason.toString().padStart(2, '0');
+                    const e = episode.episode_number.toString().padStart(2, '0');
+                    query = `${details.name} S${s}E${e}`;
+                    category = 'TV';
+                  }
+
+                  const results = await electron.searchTorrents(query, category);
                   setEpisodeTorrents(prev => ({ ...prev, [epKey]: results || [] }));
                 } catch (err) {
                   console.error('Torrent search failed:', err);
@@ -342,7 +437,10 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                   const streamInfo = await electron.startStream(torrent.magnet);
                   // Call parent to handle stream URL
                   if (onStreamStart) {
-                    onStreamStart(streamInfo.url, `${details.name} S${selectedSeason}E${episode.episode_number}`);
+                    const label = type === 'music' 
+                      ? `${details.artistName} - ${episode.name}`
+                      : `${details.name} S${selectedSeason}E${episode.episode_number}`;
+                    onStreamStart(streamInfo.url, label);
                     setStreamingStatus(''); // Clear status when video player opens
                   }
                 } catch (err) {
@@ -352,14 +450,20 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
 
               return (
                 <div key={episode.id} className="bg-gray-800 rounded border border-transparent hover:border-gray-600 transition-all overflow-visible">
-                  {/* Episode Row */}
+                  {/* Episode/Track Row */}
                   <div 
                     className="p-4 flex items-center cursor-pointer hover:bg-gray-700 transition-all"
                     onClick={handleEpisodeClick}
                   >
                     <div className="w-8 text-gray-500">{episode.episode_number}</div>
-                    <div className="w-32 aspect-video bg-gray-900 rounded mr-4 overflow-hidden relative flex-shrink-0">
-                      {episode.still_path ? (
+                    <div className="w-16 aspect-square bg-gray-900 rounded mr-4 overflow-hidden relative flex-shrink-0">
+                      {type === 'music' ? (
+                        <img 
+                          src={details.artworkUrl100?.replace('100x100', '200x200')} 
+                          alt={details.collectionName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : episode.still_path ? (
                         <img 
                           src={tmdb.getImageUrl(episode.still_path, 'w300')} 
                           alt={episode.name}
