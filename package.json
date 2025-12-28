@@ -1,6 +1,6 @@
 {
   "name": "stream-engine",
-  "version": "0.5.2",
+  "version": "0.5.18",
   "main": "src/main/main.js",
   "homepage": "./",
   "author": "StreamEngine Team",
@@ -11,8 +11,8 @@
   "description": "Free, open-source torrent streaming engine.",
   "scripts": {
     "start": "electron .",
-    "dev": "concurrently \"npm run react-start\" \"wait-on http://localhost:3000 && electron .\"",
-    "react-start": "react-scripts start",
+    "dev": "concurrently \"npm run react-start\" \"wait-on http://localhost:3100 && electron .\"",
+    "react-start": "PORT=3100 react-scripts start",
     "react-build": "react-scripts build",
     "pack": "npm run react-build && electron-builder --dir",
     "dist": "npm run react-build && electron-builder"

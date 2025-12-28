@@ -1,6 +1,35 @@
 import axios from 'axios';
 
 const ITUNES_BASE_URL = 'https://itunes.apple.com';
+const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
+// Helper to perform requests with CORS proxy fallback
+const fetchWithFallback = async (url, params = {}) => {
+  try {
+    // 1. Try direct request (works in Electron)
+    const response = await axios.get(url, { params });
+    return response.data;
+  } catch (error) {
+    // 2. If Network Error (likely CORS in browser), try via Proxy
+    console.log('Direct request failed, trying proxy...', error.message);
+    if (!error.response || error.code === 'ERR_NETWORK') {
+      try {
+        // Construct full URL with params for the proxy
+        const paramString = new URLSearchParams(params).toString();
+        const targetUrl = `${url}${url.includes('?') ? '&' : '?'}${paramString}`;
+        const proxyUrl = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
+        
+        console.log('Fetching via proxy:', proxyUrl);
+        const response = await axios.get(proxyUrl);
+        return response.data;
+      } catch (proxyError) {
+        console.error('Proxy request also failed:', proxyError);
+        throw proxyError;
+      }
+    }
+    throw error;
+  }
+};
 
 const itunesClient = axios.create({
   baseURL: ITUNES_BASE_URL,
@@ -12,41 +41,27 @@ const itunesClient = axios.create({
 export const itunes = {
   // Search Albums
   searchAlbums: async (query) => {
-    // iTunes requires JSONP for client-side cross-origin requests usually, 
-    // but we can try direct first. If CORS fails, we might need a proxy or Electron net.
-    // However, in Electron renderer with webSecurity: false or via main process, it should work.
-    // For now, let's assume standard axios works or we'll proxy through main process if needed.
-    // Actually, iTunes API supports CORS.
-    const response = await itunesClient.get('/search', {
-      params: {
-        term: query,
-        media: 'music',
-        entity: 'album',
-        limit: 50,
-      },
+    return fetchWithFallback(`${ITUNES_BASE_URL}/search`, {
+      term: query,
+      media: 'music',
+      entity: 'album',
+      limit: 50,
     });
-    return response.data;
   },
 
-  // Get Top Albums (iTunes RSS feed is better for "Popular" but search API "term" is required)
-  // Workaround: Search for a common term or use RSS feed. 
-  // Let's use RSS feed for "Popular" music.
+  // Get Top Albums
   getTopAlbums: async (limit = 50) => {
-    // Apple Music RSS Feed
-    const rssUrl = `https://rss.applemarketingtools.com/api/v2/us/music/most-played/50/albums.json`;
-    const response = await axios.get(rssUrl);
-    return response.data.feed.results;
+    const rssUrl = `https://rss.applemarketingtools.com/api/v2/us/music/most-played/${limit}/albums.json`;
+    const data = await fetchWithFallback(rssUrl);
+    return data.feed.results;
   },
 
   // Get Album Details (Tracks)
   getAlbumDetails: async (collectionId) => {
-    const response = await itunesClient.get('/lookup', {
-      params: {
-        id: collectionId,
-        entity: 'song',
-      },
+    return fetchWithFallback(`${ITUNES_BASE_URL}/lookup`, {
+      id: collectionId,
+      entity: 'song',
     });
-    return response.data;
   },
 
   // Helper to get high-res artwork

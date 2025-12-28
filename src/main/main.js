@@ -132,7 +132,7 @@ function createWindow() {
 
 
   const startUrl = isDev
-    ? 'http://localhost:3000'
+    ? 'http://localhost:3100'
     : `file://${path.join(__dirname, '../../build/index.html')}`;
 
   mainWindow.loadURL(startUrl);
@@ -166,6 +166,11 @@ ipcMain.handle('search-torrents', async (event, query, category = 'All') => {
     console.error('Search error:', err);
     return [];
   }
+});
+
+// IPC: Get User Data Path (Sync)
+ipcMain.on('get-user-data-path-sync', (event) => {
+  event.returnValue = app.getPath('userData');
 });
 
 // IPC: Start Streaming

@@ -342,6 +342,7 @@ function App() {
           items={items} 
           loading={loading && !streamUrl} 
           onSelect={setSelectedItem} 
+          type={category}
         />
       </div>
 
@@ -356,6 +357,13 @@ function App() {
               electron.stopStream();
             }
             setSelectedItem(null);
+            
+            // Force a check of favorites/history in the grid
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('favorites-updated'));
+              window.dispatchEvent(new CustomEvent('history-updated'));
+            }, 50);
+            
             // Refresh grid if we are viewing favorites (in case item was removed)
             if (sortBy === 'favorites') {
               loadContent();
