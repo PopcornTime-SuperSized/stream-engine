@@ -10,6 +10,7 @@ export const getElectron = () => {
         searchTorrents: (q, c) => ipcRenderer.invoke('search-torrents', q, c),
         startStream: (m, f) => ipcRenderer.invoke('start-stream', m, f),
         stopStream: () => ipcRenderer.invoke('stop-stream'),
+        downloadActiveFile: () => ipcRenderer.invoke('download-active-file'),
         openExternal: (url) => shell.openExternal(url)
       };
     } catch (e) {

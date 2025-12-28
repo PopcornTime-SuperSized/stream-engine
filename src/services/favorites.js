@@ -66,18 +66,40 @@ try {
 // Helper to get all favorites from file (fallback to localStorage if fs fails)
 const getStore = () => {
   try {
+    let store = { movie: [], tv: [], music: [] };
     if (fs && storePath) {
       if (fs.existsSync(storePath)) {
         const data = fs.readFileSync(storePath, 'utf-8');
-        return JSON.parse(data);
+        store = JSON.parse(data);
       }
+    } else {
+      // Fallback
+      const legacy = localStorage.getItem('stream-engine-favorites');
+      if (legacy) store = JSON.parse(legacy);
     }
-    // Fallback
-    const store = localStorage.getItem('stream-engine-favorites');
-    return store ? JSON.parse(store) : { movie: [], tv: [], music: [] };
+
+    // Ensure structure exists
+    if (!store.movie) store.movie = [];
+    if (!store.tv) store.tv = [];
+    if (!store.music) store.music = [];
+    
+    // Playlist Migration & Structure
+    if (!store.playlists) {
+      store.playlists = { music: { 'General Playlist': [] } };
+      // Migrate legacy music favorites if they are in a flat array
+      if (Array.isArray(store.music) && store.music.length > 0) {
+        console.log('[Favorites] Migrating legacy flat music list to General Playlist');
+        store.playlists.music['General Playlist'] = [...store.music];
+        store.music = []; // Clear flat list once migrated
+      }
+    } else if (!store.playlists.music) {
+      store.playlists.music = { 'General Playlist': [] };
+    }
+
+    return store;
   } catch (e) {
     console.error('Failed to parse favorites', e);
-    return { movie: [], tv: [], music: [] };
+    return { movie: [], tv: [], music: [], playlists: { music: { 'General Playlist': [] } } };
   }
 };
 
@@ -102,8 +124,22 @@ const notify = () => {
 
 export const favorites = {
   // Add an item to favorites
-  add: (item, type) => {
+  add: (item, type, playlistName = null) => {
     const store = getStore();
+    
+    if (type === 'music') {
+      const pName = playlistName || 'General Playlist';
+      if (!store.playlists.music[pName]) store.playlists.music[pName] = [];
+      
+      if (!store.playlists.music[pName].some(i => i.id == item.id)) {
+        store.playlists.music[pName].push(item);
+        saveStore(store);
+        console.log(`[Favorites] Added ${item.title || item.name} to Music playlist: ${pName}`);
+        notify();
+      }
+      return;
+    }
+
     if (!store[type]) store[type] = [];
     
     // Check if already exists to prevent duplicates
@@ -118,8 +154,26 @@ export const favorites = {
   },
 
   // Remove an item from favorites
-  remove: (id, type) => {
+  remove: (id, type, playlistName = null) => {
     const store = getStore();
+    
+    if (type === 'music') {
+      if (playlistName) {
+        // Remove from specific playlist
+        if (store.playlists.music[playlistName]) {
+          store.playlists.music[playlistName] = store.playlists.music[playlistName].filter(item => item.id != id);
+        }
+      } else {
+        // Remove from ALL playlists if no name specified
+        Object.keys(store.playlists.music).forEach(p => {
+          store.playlists.music[p] = store.playlists.music[p].filter(item => item.id != id);
+        });
+      }
+      saveStore(store);
+      notify();
+      return;
+    }
+
     if (!store[type]) return;
     
     store[type] = store[type].filter(item => item.id != id);
@@ -129,34 +183,73 @@ export const favorites = {
   },
 
   // Check if an item is favorited
-  isFavorite: (id, type) => {
+  isFavorite: (id, type, playlistName = null) => {
     const store = getStore();
+    if (type === 'music') {
+      if (playlistName) {
+        return store.playlists.music[playlistName]?.some(item => item.id == id) || false;
+      }
+      // Check if favorited in ANY music playlist
+      return Object.values(store.playlists.music).some(p => p.some(item => item.id == id));
+    }
     return store[type]?.some(item => item.id == id) || false;
   },
 
   // Get all favorites for a specific category
-  getFavorites: (type) => {
+  getFavorites: (type, playlistName = null) => {
     const store = getStore();
+    if (type === 'music') {
+      if (playlistName) return store.playlists.music[playlistName] || [];
+      // If no playlist specified for music, return all unique items across all playlists
+      const all = Object.values(store.playlists.music).flat();
+      return Array.from(new Map(all.map(item => [item.id, item])).values());
+    }
     return store[type] || [];
   },
 
-  // Toggle favorite status (convenience method)
-  toggle: (item, type) => {
+  // Get list of playlist names
+  getPlaylists: (type) => {
     const store = getStore();
-    const isFav = store[type]?.some(i => i.id == item.id);
+    if (!store.playlists || !store.playlists[type]) return [];
+    return Object.keys(store.playlists[type]);
+  },
+
+  // Create a new playlist
+  createPlaylist: (type, name) => {
+    if (!name) return false;
+    const store = getStore();
+    if (!store.playlists) store.playlists = {};
+    if (!store.playlists[type]) store.playlists[type] = {};
     
-    if (isFav) {
-      store[type] = store[type].filter(i => i.id != item.id);
-      console.log(`[Favorites] Toggled OFF ${item.title || item.name} (${item.id})`);
-    } else {
-      if (!store[type]) store[type] = [];
-      store[type].push(item);
-      console.log(`[Favorites] Toggled ON ${item.title || item.name} (${item.id})`);
-    }
+    if (store.playlists[type][name]) return false; // Already exists
     
-    saveStore(store);
+    store.playlists[type][name] = [];
     saveStore(store);
     notify();
+    return true;
+  },
+
+  // Delete a playlist
+  deletePlaylist: (type, name) => {
+    if (name === 'General Playlist') return false; // Protected
+    const store = getStore();
+    if (store.playlists?.[type]?.[name]) {
+      delete store.playlists[type][name];
+      saveStore(store);
+      notify();
+      return true;
+    }
+    return false;
+  },
+
+  // Toggle favorite status (convenience method)
+  toggle: (item, type, playlistName = null) => {
+    const isFav = favorites.isFavorite(item.id, type, playlistName);
+    if (isFav) {
+      favorites.remove(item.id, type, playlistName);
+    } else {
+      favorites.add(item, type, playlistName);
+    }
     return !isFav;
   }
 };

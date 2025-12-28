@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
 const TorrentSearchApi = require('torrent-search-api');
@@ -22,6 +22,42 @@ let activeFile = null;
 // Initialize Express for Transcoding
 const appServer = express();
 let serverPort = 0;
+
+// IPC: Download Active File
+ipcMain.handle('download-active-file', async () => {
+  if (!activeFile) {
+    throw new Error('No active stream to download');
+  }
+
+  const { filePath } = await dialog.showSaveDialog({
+    title: 'Download Media',
+    defaultPath: activeFile.name,
+    buttonLabel: 'Download',
+    filters: [
+      { name: 'Media Files', extensions: [path.extname(activeFile.name).replace('.', '')] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+
+  if (!filePath) return { success: false, cancelled: true };
+
+  return new Promise((resolve, reject) => {
+    const stream = activeFile.createReadStream();
+    const writeStream = fs.createWriteStream(filePath);
+
+    stream.pipe(writeStream);
+
+    writeStream.on('finish', () => {
+      resolve({ success: true, path: filePath });
+    });
+
+    writeStream.on('error', (err) => {
+      reject(err);
+    });
+
+    // Send progress if possible (optional enhancement)
+  });
+});
 
 appServer.get('/stream', (req, res) => {
   if (!activeFile) {

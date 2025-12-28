@@ -19,6 +19,12 @@ function App() {
   const [status, setStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('popularity');
+  const [downloading, setDownloading] = useState(false);
+  
+  // Playlist Playback State
+  const [activePlaylist, setActivePlaylist] = useState(null);
+  const [playlistQueue, setPlaylistQueue] = useState([]);
+  const [isPlaylistPlaying, setIsPlaylistPlaying] = useState(false);
   
   // Quality Selection State
   const [torrentOptions, setTorrentOptions] = useState(null);
@@ -216,6 +222,132 @@ function App() {
     setPendingMetadata(null);
   };
 
+  // Handle Download Active File
+  const handleDownload = async () => {
+    if (!electron || !electron.downloadActiveFile) return;
+    
+    setDownloading(true);
+    try {
+      const result = await electron.downloadActiveFile();
+      if (result.success) {
+        setStatus(`Download complete: ${result.path}`);
+      } else if (result.cancelled) {
+        setStatus('Download cancelled');
+      }
+    } catch (err) {
+      console.error('Download failed:', err);
+      setStatus(`Download failed: ${err.message}`);
+    }
+    setDownloading(false);
+  };
+
+  // Handle Playlist Playback Logic
+  const playNextInQueue = async (queue) => {
+    if (!queue || queue.length === 0) {
+      setIsPlaylistPlaying(false);
+      setActivePlaylist(null);
+      setPlaylistQueue([]);
+      setStreamUrl(null);
+      setStatus('Playlist finished');
+      setLoading(false);
+      return;
+    }
+
+    const nextItem = queue[0];
+    const remainingQueue = queue.slice(1);
+    setPlaylistQueue(remainingQueue);
+
+    const trackName = nextItem.trackName || nextItem.collectionName || nextItem.title || nextItem.name;
+    setStatus(`Playlist: Searching for "${trackName}"...`);
+    setLoading(true);
+
+    try {
+      // For music, search for the album/artist
+      const query = `${nextItem.artistName || ''} ${nextItem.collectionName || nextItem.title || ''}`.trim();
+      console.log('[Playlist] Searching:', query);
+      const torrents = await electron.searchTorrents(query);
+      
+      console.log('[Playlist] Found torrents:', torrents?.length, torrents?.slice(0, 2));
+      
+      if (!torrents || torrents.length === 0) {
+        console.warn(`No sources found for ${trackName}, skipping...`);
+        setStatus(`Skipping "${trackName}" - no sources found`);
+        setTimeout(() => playNextInQueue(remainingQueue), 1500);
+        return;
+      }
+
+      // Filter out only torrents with clearly invalid dummy magnet hashes
+      const validTorrents = torrents.filter(t => {
+        if (!t.magnet) return false;
+        // Only reject the dummy hash pattern
+        if (t.magnet.includes('0000000000000000000000000000000000000000')) return false;
+        return true;
+      });
+
+      console.log('[Playlist] Valid torrents after filter:', validTorrents?.length);
+
+      if (validTorrents.length === 0) {
+        console.warn(`No valid torrents for ${trackName}, skipping...`);
+        setStatus(`Skipping "${trackName}" - no valid sources`);
+        setTimeout(() => playNextInQueue(remainingQueue), 1500);
+        return;
+      }
+
+      // Try torrents in order until one works
+      let streamStarted = false;
+      for (const torrent of validTorrents.slice(0, 3)) { // Try up to 3 torrents
+        try {
+          console.log('[Playlist] Trying torrent:', torrent.title, torrent.seeds);
+          setStatus(`Playlist: Connecting to "${trackName}"...`);
+          const streamInfo = await electron.startStream(torrent.magnet, trackName);
+          setStreamUrl(streamInfo.url);
+          setStreamType('audio');
+          setStatus(`Playlist Playing: ${trackName}`);
+          setLoading(false);
+          streamStarted = true;
+          break;
+        } catch (torrentErr) {
+          console.warn(`Torrent failed for ${trackName}:`, torrentErr.message);
+          // Continue to next torrent
+        }
+      }
+
+      if (!streamStarted) {
+        console.warn(`All torrents failed for ${trackName}, skipping...`);
+        setStatus(`Skipping "${trackName}" - connection failed`);
+        setTimeout(() => playNextInQueue(remainingQueue), 1500);
+      }
+    } catch (err) {
+      console.error('Playlist playback error:', err);
+      setStatus(`Skipping "${trackName}" - error occurred`);
+      setTimeout(() => playNextInQueue(remainingQueue), 1500);
+    }
+  };
+
+  const handlePlaylistSelect = (playlistName) => {
+    if (isPlaylistPlaying && activePlaylist === playlistName) {
+      // Stop playing if same playlist clicked
+      if (electron && electron.stopStream) electron.stopStream();
+      setIsPlaylistPlaying(false);
+      setActivePlaylist(null);
+      setPlaylistQueue([]);
+      setStreamUrl(null);
+      return;
+    }
+
+    const playlistItems = favorites.getFavorites('music', playlistName);
+    if (!playlistItems || playlistItems.length === 0) {
+      setStatus(`Playlist "${playlistName}" is empty. Add some favorites first!`);
+      return;
+    }
+
+    // Shuffle and start
+    const shuffled = [...playlistItems].sort(() => Math.random() - 0.5);
+    setActivePlaylist(playlistName);
+    setIsPlaylistPlaying(true);
+    playNextInQueue(shuffled);
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white font-sans selection:bg-red-500 selection:text-white">
       <Navbar 
@@ -224,6 +356,9 @@ function App() {
         activeCategory={category}
         onSortChange={handleSortChange}
         activeSort={sortBy}
+        activePlaylist={activePlaylist}
+        onPlaylistSelect={handlePlaylistSelect}
+        isPlaylistPlaying={isPlaylistPlaying}
       />
 
       <div className="container mx-auto">
@@ -258,33 +393,60 @@ function App() {
                     </svg>
                   </div>
                   <h2 className="text-2xl font-bold mb-4">{status.replace('Now Playing: ', '')}</h2>
-                  <audio
-                    key={streamUrl}
-                    src={streamUrl}
-                    controls
-                    autoPlay
-                    className="w-full max-w-md mx-auto"
-                    onCanPlay={(e) => {
-                      const loader = document.getElementById('video-loading');
-                      if (loader) loader.style.display = 'none';
-                    }}
-                    onWaiting={(e) => {
-                      const loader = document.getElementById('video-loading');
-                      if (loader) loader.style.display = 'flex';
-                    }}
-                    onPlaying={(e) => {
-                      const loader = document.getElementById('video-loading');
-                      if (loader) loader.style.display = 'none';
-                    }}
-                    onError={(e) => {
-                      const loader = document.getElementById('video-loading');
-                      if (loader) loader.style.display = 'flex';
-                      const statsDiv = document.getElementById('progress-stats');
-                      if (statsDiv) {
-                        statsDiv.innerHTML = `<p class="text-red-400 text-sm">Error loading media: ${e.target.error?.message || 'Unknown error'}</p>`;
-                      }
-                    }}
-                  />
+                  
+                  <div className="flex flex-col items-center space-y-6">
+                    <audio
+                      key={streamUrl}
+                      src={streamUrl}
+                      controls
+                      autoPlay
+                      className="w-full max-w-md mx-auto"
+                      onCanPlay={(e) => {
+                        const loader = document.getElementById('video-loading');
+                        if (loader) loader.style.display = 'none';
+                      }}
+                      onWaiting={(e) => {
+                        const loader = document.getElementById('video-loading');
+                        if (loader) loader.style.display = 'flex';
+                      }}
+                      onPlaying={(e) => {
+                        const loader = document.getElementById('video-loading');
+                        if (loader) loader.style.display = 'none';
+                      }}
+                      onError={(e) => {
+                        const loader = document.getElementById('video-loading');
+                        if (loader) loader.style.display = 'flex';
+                        const statsDiv = document.getElementById('progress-stats');
+                        if (statsDiv) {
+                          statsDiv.innerHTML = `<p class="text-red-400 text-sm">Error loading media: ${e.target.error?.message || 'Unknown error'}</p>`;
+                        }
+                      }}
+                      onEnded={() => {
+                        if (isPlaylistPlaying) {
+                          playNextInQueue(playlistQueue);
+                        }
+                      }}
+                    />
+
+                    <button
+                      onClick={handleDownload}
+                      disabled={downloading}
+                      className={`flex items-center space-x-2 px-6 py-3 rounded-full font-bold transition-all ${
+                        downloading 
+                          ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                          : 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:scale-105 active:scale-95'
+                      }`}
+                    >
+                      {downloading ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      )}
+                      <span>{downloading ? 'Downloading...' : 'Download Song'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -326,6 +488,9 @@ function App() {
                 }
                 setStreamUrl(null);
                 setLoading(false);
+                setIsPlaylistPlaying(false);
+                setActivePlaylist(null);
+                setPlaylistQueue([]);
               }}
               className="absolute top-3 right-3 w-8 h-8 bg-black/60 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
               title="Stop Playback"
