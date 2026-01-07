@@ -18,6 +18,16 @@ function transformResults(results) {
   }));
 }
 
+// Helper: search with timeout
+async function searchWithTimeout(query, category, limit, timeoutMs = 15000) {
+  return Promise.race([
+    TorrentSearchApi.search(query, category, limit),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Search timeout')), timeoutMs)
+    )
+  ]);
+}
+
 // Search for TV episodes
 async function searchTV(showName, season, episode) {
   const s = String(season).padStart(2, '0');
@@ -28,7 +38,7 @@ async function searchTV(showName, season, episode) {
   
   try {
     // Use 'All' category - 'TV' category often returns 0 results with Eztv
-    const results = await TorrentSearchApi.search(query, 'All', 30);
+    const results = await searchWithTimeout(query, 'All', 30);
     console.log(`[TV Search] Found ${results.length} results`);
     return transformResults(results);
   } catch (err) {
@@ -45,7 +55,7 @@ async function searchMovie(title, year) {
   
   try {
     // Use 'All' category since 'Movies' often fails with available providers
-    const results = await TorrentSearchApi.search(query, 'All', 30);
+    const results = await searchWithTimeout(query, 'All', 30);
     console.log(`[Movie Search] Found ${results.length} results`);
     return transformResults(results);
   } catch (err) {
