@@ -513,12 +513,8 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                 
                 setLoadingTorrents(epKey);
                 try {
-                  const s = selectedSeason.toString().padStart(2, '0');
-                  const e = episode.episode_number.toString().padStart(2, '0');
-                  const query = `${details.name} S${s}E${e}`;
-                  
-                  // Pass IMDB ID and episode info for EZTV API lookup
-                  const results = await electron.searchTorrents(query, 'TV', {
+                  // Pass show name only - torrent-sources.js adds S##E## format
+                  const results = await electron.searchTorrents(details.name, 'TV', {
                     type: 'tv',
                     imdbId: imdbId,
                     season: selectedSeason,
