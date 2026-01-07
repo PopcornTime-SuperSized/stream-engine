@@ -32,6 +32,9 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
   const [movieTorrentsFetched, setMovieTorrentsFetched] = useState(false);
   const [expandedQuality, setExpandedQuality] = useState(null); // For dropdown
   
+  // IMDB ID for better torrent lookups
+  const [imdbId, setImdbId] = useState(null);
+  
   const electron = getElectron();
   const banners = getBannerUrls();
 
@@ -53,6 +56,17 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
         } else if (type === 'tv') {
           const data = await tmdb.getTVDetails(item.id);
           setDetails(data);
+          
+          // Fetch IMDB ID for better torrent lookups
+          try {
+            const externalIds = await tmdb.getTVExternalIds(item.id);
+            if (externalIds?.imdb_id) {
+              setImdbId(externalIds.imdb_id);
+              console.log('IMDB ID fetched:', externalIds.imdb_id);
+            }
+          } catch (err) {
+            console.warn('Could not fetch IMDB ID:', err.message);
+          }
           
           // Sort seasons: Specials (0) first, then newest to oldest
           const sortedSeasons = (data.seasons || []).sort((a, b) => {
@@ -121,17 +135,21 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
       let query;
       let category = 'All';
 
+      let options = {};
+      
       if (type === 'movie') {
         const movieYear = new Date(details.release_date).getFullYear();
         query = `${details.title} ${movieYear}`;
         category = 'Movies';
+        options = { type: 'movie', year: movieYear };
       } else if (type === 'music') {
         query = `${details.artistName} ${details.collectionName}`;
         category = 'Audio';
+        options = { type: 'music' };
       }
       
       try {
-        const results = await electron.searchTorrents(query, category);
+        const results = await electron.searchTorrents(query, category, options);
         setMovieTorrents(results || []);
       } catch (err) {
         console.error('Torrent search failed:', err);
@@ -498,7 +516,14 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                   const s = selectedSeason.toString().padStart(2, '0');
                   const e = episode.episode_number.toString().padStart(2, '0');
                   const query = `${details.name} S${s}E${e}`;
-                  const results = await electron.searchTorrents(query, 'TV');
+                  
+                  // Pass IMDB ID and episode info for EZTV API lookup
+                  const results = await electron.searchTorrents(query, 'TV', {
+                    type: 'tv',
+                    imdbId: imdbId,
+                    season: selectedSeason,
+                    episode: episode.episode_number
+                  });
                   setEpisodeTorrents(prev => ({ ...prev, [epKey]: results || [] }));
                 } catch (err) {
                   console.error('Torrent search failed:', err);

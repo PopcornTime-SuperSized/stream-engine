@@ -1,8 +1,8 @@
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
-const TorrentSearchApi = require('torrent-search-api');
 const WebTorrent = require('webtorrent');
+const { searchTorrents } = require('./torrent-sources');
 
 const fs = require('fs');
 const express = require('express');
@@ -130,10 +130,8 @@ const serverInstance = appServer.listen(0, () => {
   console.log(`Transcoding server running on port ${serverPort}`);
 });
 
-// Initialize Search API
-TorrentSearchApi.enablePublicProviders();
-const activeProviders = TorrentSearchApi.getActiveProviders();
-console.log('Active Torrent Providers:', activeProviders.map(p => p.name).join(', '));
+// Torrent sources initialized in ./torrent-sources.js
+console.log('Torrent sources loaded: EZTV API (primary), torrent-search-api (fallback)');
 
 let mainWindow;
 
@@ -192,11 +190,11 @@ app.on('activate', () => {
   }
 });
 
-// IPC: Search Torrents
-ipcMain.handle('search-torrents', async (event, query, category = 'All') => {
+// IPC: Search Torrents (supports EZTV API with IMDB ID for TV shows)
+ipcMain.handle('search-torrents', async (event, query, category = 'All', options = {}) => {
   try {
-    console.log(`Searching for: ${query} in ${category}`);
-    const results = await TorrentSearchApi.search(query, category, 20);
+    console.log(`Searching for: ${query} in ${category}`, options);
+    const results = await searchTorrents(query, category, options);
     return results;
   } catch (err) {
     console.error('Search error:', err);

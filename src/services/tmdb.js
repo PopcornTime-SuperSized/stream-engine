@@ -53,6 +53,16 @@ export const tmdb = {
     return response.data;
   },
   
+  // External IDs (IMDB, etc.)
+  getTVExternalIds: async (tvId) => {
+    const response = await tmdbClient.get(`/tv/${tvId}/external_ids`);
+    return response.data;
+  },
+  getMovieExternalIds: async (movieId) => {
+    const response = await tmdbClient.get(`/movie/${movieId}/external_ids`);
+    return response.data;
+  },
+  
   // Discovery with Sorting
   discoverMovies: async (sortBy = 'popularity.desc', page = 1) => {
     const response = await tmdbClient.get('/discover/movie', { 
