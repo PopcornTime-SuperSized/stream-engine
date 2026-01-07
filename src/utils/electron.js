@@ -7,7 +7,7 @@ export const getElectron = () => {
     try {
       const { ipcRenderer, shell } = window.require('electron');
       return {
-        searchTorrents: (q, c) => ipcRenderer.invoke('search-torrents', q, c),
+        searchTorrents: (q, c, opts) => ipcRenderer.invoke('search-torrents', q, c, opts),
         startStream: (m, f) => ipcRenderer.invoke('start-stream', m, f),
         stopStream: () => ipcRenderer.invoke('stop-stream'),
         downloadActiveFile: () => ipcRenderer.invoke('download-active-file'),

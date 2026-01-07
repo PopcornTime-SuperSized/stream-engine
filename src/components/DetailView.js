@@ -514,12 +514,14 @@ const DetailView = ({ item, type, onClose, onPlay, onStreamStart }) => {
                 setLoadingTorrents(epKey);
                 try {
                   // Pass show name only - torrent-sources.js adds S##E## format
-                  const results = await electron.searchTorrents(details.name, 'TV', {
+                  const searchOptions = {
                     type: 'tv',
                     imdbId: imdbId,
                     season: selectedSeason,
                     episode: episode.episode_number
-                  });
+                  };
+                  console.log('Searching with options:', searchOptions);
+                  const results = await electron.searchTorrents(details.name, 'TV', searchOptions);
                   setEpisodeTorrents(prev => ({ ...prev, [epKey]: results || [] }));
                 } catch (err) {
                   console.error('Torrent search failed:', err);
